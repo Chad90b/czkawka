@@ -12,34 +12,31 @@ jobs:
   linux-gui:
     strategy:
       matrix:
-        toolchain: [ stable, 1.65.0 ]
+        toolchain: [ stable, 1.70.0 ]
         type: [ release ]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.toolchain }}
-          override: true
-
-      - uses: actions/cache@v3
-        with:
-          path: |
-            target
-          key: linux-default-${{github.ref}}-${{github.sha}}
-          restore-keys: |
-            linux-default-${{github.ref}}-${{github.sha}}
-
       - name: Install basic libraries
         run: sudo apt-get update; sudo apt install libgtk-4-dev libheif-dev -y
+
+      - name: Setup rust version
+        run: rustup default ${{ matrix.toolchain }}
 
       - name: Build Release Heif
         run: cargo build --release --features heif
         env:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0"
-        if: ${{ (matrix.type == 'release') && (matrix.toolchain == '1.65.0') }}
+        if: ${{ (matrix.type == 'release') && (matrix.toolchain == '1.70.0') }}
+
+      - name: Store Linux GUI Heif
+        uses: actions/upload-artifact@v3
+        with:
+          name: czkawka_gui-${{ runner.os }}-${{ matrix.toolchain }}-heif
+          path: target/release/czkawka_gui
+        if: ${{ matrix.type == 'release' }}
 
       - name: Build Release
         run: cargo build --release
@@ -64,21 +61,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.toolchain }}
-          override: true
-
-      - uses: actions/cache@v3
-        with:
-          path: |
-            target
-          key: linux-appimage-gui-${{github.ref}}-${{github.sha}}
-          restore-keys: |
-            linux-appimage-gui-${{github.ref}}-${{github.sha}}
-
       - name: Install Dependencies
         run: sudo apt-get update; sudo apt install libgtk-4-dev libheif-dev librsvg2-dev wget fuse libfuse2 -y
+
+      - name: Setup rust version
+        run: rustup default ${{ matrix.toolchain }}
 
       - name: Build Release
         run: cargo build --release
@@ -86,7 +73,7 @@ jobs:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0"
 
-      - name: Download appimage dependiences
+      - name: Download appimage dependencies
         run: |
           pwd
           wget -c "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh"
@@ -110,9 +97,9 @@ jobs:
           rm -rf czkawka_gui
           cp target/release/czkawka_gui .
           strip czkawka_gui
-          wget https://github.com/AppImage/pkg2appimage/releases/download/continuous/pkg2appimage-1807-x86_64.AppImage
-          chmod +x pkg2appimage-1807-x86_64.AppImage
-          ./pkg2appimage-1807-x86_64.AppImage misc/czkawka-appimage-recipe.yml
+          wget https://github.com/AppImageCommunity/pkg2appimage/releases/download/continuous/pkg2appimage--x86_64.AppImage -O pkg2.appimage
+          chmod +x ./pkg2.appimage
+          ./pkg2.appimage misc/czkawka-appimage-recipe.yml
           mv out/Czkawka*.AppImage out/czkawka_gui-minimal.AppImage
 
       - name: Minimal Appimage Upload
@@ -130,13 +117,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.toolchain }}
-          override: true
-
       - name: Install Dependencies
         run: sudo apt-get update; sudo apt install libgtk-4-dev libheif-dev librsvg2-dev wget fuse libfuse2 -y xvfb
+
+      - name: Setup rust version
+        run: rustup default ${{ matrix.toolchain }}
 
       - name: Test
         run: xvfb-run cargo test

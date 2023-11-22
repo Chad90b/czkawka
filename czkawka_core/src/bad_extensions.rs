@@ -1,31 +1,28 @@
 use std::collections::{BTreeSet, HashMap};
-use std::fs::File;
 use std::io::prelude::*;
-use std::io::BufWriter;
+use std::mem;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::thread::sleep;
-use std::time::{Duration, SystemTime};
-use std::{mem, thread};
 
 use crossbeam_channel::Receiver;
+use fun_time::fun_time;
+use futures::channel::mpsc::UnboundedSender;
+use log::debug;
 use mime_guess::get_mime_extensions;
 use rayon::prelude::*;
+use serde::Serialize;
 
-use crate::common::{Common, LOOP_DURATION};
-use crate::common_dir_traversal::{CheckingMethod, DirTraversalBuilder, DirTraversalResult, FileEntry, ProgressData};
-use crate::common_directory::Directories;
-use crate::common_extensions::Extensions;
-use crate::common_items::ExcludedItems;
-use crate::common_messages::Messages;
+use crate::common::{check_if_stop_received, prepare_thread_handler_common, send_info_and_wait_for_ending_all_threads};
+use crate::common_dir_traversal::{CheckingMethod, DirTraversalBuilder, DirTraversalResult, FileEntry, ProgressData, ToolType};
+use crate::common_tool::{CommonData, CommonToolData};
 use crate::common_traits::*;
 
 static DISABLED_EXTENSIONS: &[&str] = &["file", "cache", "bak", "data"]; // Such files can have any type inside
 
 // This adds several workarounds for bugs/invalid recognizing types by external libraries
 // ("real_content_extension", "current_file_extension")
-static WORKAROUNDS: &[(&str, &str)] = &[
+const WORKAROUNDS: &[(&str, &str)] = &[
     // Wine/Windows
     ("der", "cat"),
     ("exe", "acm"),
@@ -73,7 +70,15 @@ static WORKAROUNDS: &[(&str, &str)] = &[
     ("xml", "mum"),
     ("xml", "resx"),
     ("zip", "wmz"),
+    // Games specific extensions - cannot be used here common extensions like zip
+    ("gz", "h3m"),     // Heroes 3
+    ("zip", "hashdb"), // Gog
+    ("zip", "c2"),     // King of the Dark Age
+    ("bmp", "c2"),     // King of the Dark Age
+    ("avi", "c2"),     // King of the Dark Age
+    ("exe", "c2"),     // King of the Dark Age
     // Other
+    ("der", "keystore"),  // Godot/Android keystore
     ("exe", "pyd"),       // Python/Mingw
     ("gz", "blend"),      // Blender
     ("gz", "crate"),      // Cargo
@@ -82,6 +87,7 @@ static WORKAROUNDS: &[(&str, &str)] = &[
     ("html", "dtd"),      // Mingw
     ("html", "ent"),      // Mingw
     ("html", "md"),       // Markdown
+    ("html", "svelte"),   // Svelte
     ("jpg", "jfif"),      // Photo format
     ("m4v", "mp4"),       // m4v and mp4 are interchangeable
     ("mobi", "azw3"),     // Ebook format
@@ -92,6 +98,8 @@ static WORKAROUNDS: &[(&str, &str)] = &[
     ("ods", "ots"),       // Libreoffice
     ("odt", "ott"),       // Libreoffice
     ("ogg", "ogv"),       // Audio format
+    ("pem", "key"),       // curl, openssl
+    ("png", "kpp"),       // Krita presets
     ("pptx", "ppsx"),     // Powerpoint
     ("sh", "bash"),       // Linux
     ("sh", "guess"),      // GNU
@@ -110,6 +118,7 @@ static WORKAROUNDS: &[(&str, &str)] = &[
     ("xml", "dae"),       // 3D models
     ("xml", "docbook"),   //
     ("xml", "fb2"),       //
+    ("xml", "filters"),   // Visual studio
     ("xml", "gir"),       // GTK
     ("xml", "glade"),     // Glade
     ("xml", "iml"),       // Intelij Idea
@@ -125,6 +134,7 @@ static WORKAROUNDS: &[(&str, &str)] = &[
     ("xml", "vbox"),      // VirtualBox
     ("xml", "vbox-prev"), // VirtualBox
     ("xml", "vcproj"),    // VisualStudio
+    ("xml", "vcxproj"),   // VisualStudio
     ("xml", "xba"),       // Libreoffice
     ("xml", "xcd"),       // Libreoffice files
     ("zip", "apk"),       // Android apk
@@ -134,6 +144,7 @@ static WORKAROUNDS: &[(&str, &str)] = &[
     ("zip", "docx"),      // Word
     ("zip", "jar"),       // Java
     ("zip", "kra"),       // Krita
+    ("zip", "kgm"),       // Krita
     ("zip", "nupkg"),     // Nuget packages
     ("zip", "odg"),       // Libreoffice
     ("zip", "pptx"),      // Powerpoint
@@ -150,7 +161,7 @@ static WORKAROUNDS: &[(&str, &str)] = &[
     ("exe", "xls"), // Not sure why xls is not recognized
 ];
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct BadFileEntry {
     pub path: PathBuf,
     pub modified_date: u64,
@@ -159,155 +170,65 @@ pub struct BadFileEntry {
     pub proper_extensions: String,
 }
 
-/// Info struck with helpful information's about results
 #[derive(Default)]
 pub struct Info {
     pub number_of_files_with_bad_extension: usize,
 }
 
-impl Info {
-    #[must_use]
-    pub fn new() -> Self {
-        Default::default()
-    }
-}
-
 pub struct BadExtensions {
-    text_messages: Messages,
+    common_data: CommonToolData,
     information: Info,
     files_to_check: Vec<FileEntry>,
     bad_extensions_files: Vec<BadFileEntry>,
-    directories: Directories,
-    allowed_extensions: Extensions,
-    excluded_items: ExcludedItems,
-    minimal_file_size: u64,
-    maximal_file_size: u64,
-    recursive_search: bool,
-    stopped_search: bool,
-    save_also_as_json: bool,
     include_files_without_extension: bool,
 }
 
 impl BadExtensions {
-    #[must_use]
     pub fn new() -> Self {
         Self {
-            text_messages: Messages::new(),
-            information: Info::new(),
-            recursive_search: true,
-            allowed_extensions: Extensions::new(),
-            directories: Directories::new(),
-            excluded_items: ExcludedItems::new(),
+            common_data: CommonToolData::new(ToolType::BadExtensions),
+            information: Info::default(),
             files_to_check: Default::default(),
-            stopped_search: false,
-            minimal_file_size: 8192,
-            maximal_file_size: u64::MAX,
             bad_extensions_files: Default::default(),
-            save_also_as_json: false,
             include_files_without_extension: true,
         }
     }
 
-    pub fn find_bad_extensions_files(&mut self, stop_receiver: Option<&Receiver<()>>, progress_sender: Option<&futures::channel::mpsc::UnboundedSender<ProgressData>>) {
-        self.directories.optimize_directories(self.recursive_search, &mut self.text_messages);
+    #[fun_time(message = "find_bad_extensions_files", level = "info")]
+    pub fn find_bad_extensions_files(&mut self, stop_receiver: Option<&Receiver<()>>, progress_sender: Option<&UnboundedSender<ProgressData>>) {
+        self.optimize_dirs_before_start();
         if !self.check_files(stop_receiver, progress_sender) {
-            self.stopped_search = true;
+            self.common_data.stopped_search = true;
             return;
         }
         if !self.look_for_bad_extensions_files(stop_receiver, progress_sender) {
-            self.stopped_search = true;
+            self.common_data.stopped_search = true;
             return;
         }
         self.debug_print();
     }
 
-    #[must_use]
-    pub fn get_stopped_search(&self) -> bool {
-        self.stopped_search
-    }
-
-    #[must_use]
-    pub const fn get_bad_extensions_files(&self) -> &Vec<BadFileEntry> {
-        &self.bad_extensions_files
-    }
-
-    pub fn set_maximal_file_size(&mut self, maximal_file_size: u64) {
-        self.maximal_file_size = match maximal_file_size {
-            0 => 1,
-            t => t,
-        };
-    }
-    pub fn set_minimal_file_size(&mut self, minimal_file_size: u64) {
-        self.minimal_file_size = match minimal_file_size {
-            0 => 1,
-            t => t,
-        };
-    }
-    #[cfg(target_family = "unix")]
-    pub fn set_exclude_other_filesystems(&mut self, exclude_other_filesystems: bool) {
-        self.directories.set_exclude_other_filesystems(exclude_other_filesystems);
-    }
-    #[cfg(not(target_family = "unix"))]
-    pub fn set_exclude_other_filesystems(&mut self, _exclude_other_filesystems: bool) {}
-
-    #[must_use]
-    pub const fn get_text_messages(&self) -> &Messages {
-        &self.text_messages
-    }
-
-    #[must_use]
-    pub const fn get_information(&self) -> &Info {
-        &self.information
-    }
-
-    pub fn set_save_also_as_json(&mut self, save_also_as_json: bool) {
-        self.save_also_as_json = save_also_as_json;
-    }
-
-    pub fn set_recursive_search(&mut self, recursive_search: bool) {
-        self.recursive_search = recursive_search;
-    }
-
-    pub fn set_included_directory(&mut self, included_directory: Vec<PathBuf>) -> bool {
-        self.directories.set_included_directory(included_directory, &mut self.text_messages)
-    }
-
-    pub fn set_excluded_directory(&mut self, excluded_directory: Vec<PathBuf>) {
-        self.directories.set_excluded_directory(excluded_directory, &mut self.text_messages);
-    }
-    pub fn set_allowed_extensions(&mut self, allowed_extensions: String) {
-        self.allowed_extensions.set_allowed_extensions(allowed_extensions, &mut self.text_messages);
-    }
-
-    pub fn set_excluded_items(&mut self, excluded_items: Vec<String>) {
-        self.excluded_items.set_excluded_items(excluded_items, &mut self.text_messages);
-    }
-
-    fn check_files(&mut self, stop_receiver: Option<&Receiver<()>>, progress_sender: Option<&futures::channel::mpsc::UnboundedSender<ProgressData>>) -> bool {
+    #[fun_time(message = "check_files", level = "debug")]
+    fn check_files(&mut self, stop_receiver: Option<&Receiver<()>>, progress_sender: Option<&UnboundedSender<ProgressData>>) -> bool {
         let result = DirTraversalBuilder::new()
-            .root_dirs(self.directories.included_directories.clone())
+            .root_dirs(self.common_data.directories.included_directories.clone())
             .group_by(|_fe| ())
             .stop_receiver(stop_receiver)
             .progress_sender(progress_sender)
-            .minimal_file_size(self.minimal_file_size)
-            .maximal_file_size(self.maximal_file_size)
-            .directories(self.directories.clone())
-            .allowed_extensions(self.allowed_extensions.clone())
-            .excluded_items(self.excluded_items.clone())
-            .recursive_search(self.recursive_search)
+            .minimal_file_size(self.common_data.minimal_file_size)
+            .maximal_file_size(self.common_data.maximal_file_size)
+            .directories(self.common_data.directories.clone())
+            .allowed_extensions(self.common_data.allowed_extensions.clone())
+            .excluded_items(self.common_data.excluded_items.clone())
+            .recursive_search(self.common_data.recursive_search)
             .build()
             .run();
+
         match result {
-            DirTraversalResult::SuccessFiles {
-                start_time,
-                grouped_file_entries,
-                warnings,
-            } => {
-                if let Some(files_to_check) = grouped_file_entries.get(&()) {
-                    self.files_to_check = files_to_check.clone();
-                }
-                self.text_messages.warnings.extend(warnings);
-                Common::print_time(start_time, SystemTime::now(), "check_files");
+            DirTraversalResult::SuccessFiles { grouped_file_entries, warnings } => {
+                self.files_to_check = grouped_file_entries.into_values().flatten().collect();
+                self.common_data.text_messages.warnings.extend(warnings);
+
                 true
             }
             DirTraversalResult::SuccessFolders { .. } => {
@@ -317,60 +238,52 @@ impl BadExtensions {
         }
     }
 
-    fn look_for_bad_extensions_files(&mut self, stop_receiver: Option<&Receiver<()>>, progress_sender: Option<&futures::channel::mpsc::UnboundedSender<ProgressData>>) -> bool {
-        let system_time = SystemTime::now();
+    #[fun_time(message = "look_for_bad_extensions_files", level = "debug")]
+    fn look_for_bad_extensions_files(&mut self, stop_receiver: Option<&Receiver<()>>, progress_sender: Option<&UnboundedSender<ProgressData>>) -> bool {
+        let (progress_thread_handle, progress_thread_run, atomic_counter, check_was_stopped) =
+            prepare_thread_handler_common(progress_sender, 1, 1, self.files_to_check.len(), CheckingMethod::None, self.get_cd().tool_type);
 
-        let include_files_without_extension = self.include_files_without_extension;
-
-        let check_was_stopped = AtomicBool::new(false); // Used for breaking from GUI and ending check thread
-
-        //// PROGRESS THREAD START
-        let progress_thread_run = Arc::new(AtomicBool::new(true));
-        let atomic_file_counter = Arc::new(AtomicUsize::new(0));
-
-        let progress_thread_handle = if let Some(progress_sender) = progress_sender {
-            let progress_send = progress_sender.clone();
-            let progress_thread_run = progress_thread_run.clone();
-            let atomic_file_counter = atomic_file_counter.clone();
-            let entries_to_check = self.files_to_check.len();
-            thread::spawn(move || loop {
-                progress_send
-                    .unbounded_send(ProgressData {
-                        checking_method: CheckingMethod::None,
-                        current_stage: 1,
-                        max_stage: 1,
-                        entries_checked: atomic_file_counter.load(Ordering::Relaxed),
-                        entries_to_check,
-                    })
-                    .unwrap();
-                if !progress_thread_run.load(Ordering::Relaxed) {
-                    break;
-                }
-                sleep(Duration::from_millis(LOOP_DURATION as u64));
-            })
-        } else {
-            thread::spawn(|| {})
-        };
-
-        let mut files_to_check = Default::default();
-        mem::swap(&mut files_to_check, &mut self.files_to_check);
-        //// PROGRESS THREAD END
+        let files_to_check = mem::take(&mut self.files_to_check);
 
         let mut hashmap_workarounds: HashMap<&str, Vec<&str>> = Default::default();
         for (proper, found) in WORKAROUNDS {
-            // This should be enabled when items will have only 1 possible workaround items
+            // This should be enabled when items will have only 1 possible workaround items, but looks that some have 2 or even more, so at least for now this is disabled
             // if hashmap_workarounds.contains_key(found) {
             //     panic!("Already have {} key", found);
             // }
-            hashmap_workarounds.entry(found).or_insert_with(Vec::new).push(proper);
+            hashmap_workarounds.entry(found).or_default().push(proper);
         }
 
-        self.bad_extensions_files = files_to_check
+        self.bad_extensions_files = self.verify_extensions(files_to_check, &atomic_counter, stop_receiver, &check_was_stopped, &hashmap_workarounds);
+
+        send_info_and_wait_for_ending_all_threads(&progress_thread_run, progress_thread_handle);
+
+        // Break if stop was clicked
+        if check_was_stopped.load(Ordering::Relaxed) {
+            return false;
+        }
+
+        self.information.number_of_files_with_bad_extension = self.bad_extensions_files.len();
+
+        debug!("Found {} files with invalid extension.", self.information.number_of_files_with_bad_extension);
+
+        true
+    }
+
+    #[fun_time(message = "verify_extensions", level = "debug")]
+    fn verify_extensions(
+        &self,
+        files_to_check: Vec<FileEntry>,
+        atomic_counter: &Arc<AtomicUsize>,
+        stop_receiver: Option<&Receiver<()>>,
+        check_was_stopped: &AtomicBool,
+        hashmap_workarounds: &HashMap<&str, Vec<&str>>,
+    ) -> Vec<BadFileEntry> {
+        files_to_check
             .into_par_iter()
             .map(|file_entry| {
-                println!("{:?}", file_entry.path);
-                atomic_file_counter.fetch_add(1, Ordering::Relaxed);
-                if stop_receiver.is_some() && stop_receiver.unwrap().try_recv().is_ok() {
+                atomic_counter.fetch_add(1, Ordering::Relaxed);
+                if check_if_stop_received(stop_receiver) {
                     check_was_stopped.store(true, Ordering::Relaxed);
                     return None;
                 }
@@ -385,69 +298,21 @@ impl BadExtensions {
                 };
                 let proper_extension = kind.extension();
 
-                // Extract current extension from file
-                let current_extension;
-                if let Some(extension) = file_entry.path.extension() {
-                    let extension = extension.to_string_lossy().to_lowercase();
-                    if DISABLED_EXTENSIONS.contains(&extension.as_str()) {
-                        return Some(None);
-                    }
-                    // Text longer than 10 characters is not considered as extension
-                    if extension.len() > 10 {
-                        current_extension = String::new();
-                    } else {
-                        current_extension = extension;
-                    }
-                } else {
-                    current_extension = String::new();
-                }
-
-                // Already have proper extension, no need to do more things
-                if current_extension == proper_extension {
+                let Some(current_extension) = self.get_and_validate_extension(&file_entry, proper_extension) else {
                     return Some(None);
-                }
+                };
 
                 // Check for all extensions that file can use(not sure if it is worth to do it)
-                let mut all_available_extensions: BTreeSet<&str> = Default::default();
-                let think_extension = if current_extension.is_empty() {
-                    String::new()
-                } else {
-                    for mim in mime_guess::from_ext(proper_extension) {
-                        if let Some(all_ext) = get_mime_extensions(&mim) {
-                            for ext in all_ext {
-                                all_available_extensions.insert(ext);
-                            }
-                        }
-                    }
-
-                    // Workarounds
-                    if let Some(vec_pre) = hashmap_workarounds.get(current_extension.as_str()) {
-                        for pre in vec_pre {
-                            if all_available_extensions.contains(pre) {
-                                all_available_extensions.insert(current_extension.as_str());
-                                break;
-                            }
-                        }
-                    }
-
-                    let mut guessed_multiple_extensions = format!("({proper_extension}) - ");
-                    for ext in &all_available_extensions {
-                        guessed_multiple_extensions.push_str(ext);
-                        guessed_multiple_extensions.push(',');
-                    }
-                    guessed_multiple_extensions.pop();
-
-                    guessed_multiple_extensions
-                };
+                let (mut all_available_extensions, valid_extensions) = self.check_for_all_extensions_that_file_can_use(hashmap_workarounds, &current_extension, proper_extension);
 
                 if all_available_extensions.is_empty() {
                     // Not found any extension
                     return Some(None);
                 } else if current_extension.is_empty() {
-                    if !include_files_without_extension {
+                    if !self.include_files_without_extension {
                         return Some(None);
                     }
-                } else if all_available_extensions.take(&current_extension.as_str()).is_some() {
+                } else if all_available_extensions.take(&current_extension).is_some() {
                     // Found proper extension
                     return Some(None);
                 }
@@ -457,31 +322,78 @@ impl BadExtensions {
                     modified_date: file_entry.modified_date,
                     size: file_entry.size,
                     current_extension,
-                    proper_extensions: think_extension,
+                    proper_extensions: valid_extensions,
                 }))
             })
             .while_some()
             .filter(Option::is_some)
             .map(Option::unwrap)
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>()
+    }
 
-        // End thread which send info to gui
-        progress_thread_run.store(false, Ordering::Relaxed);
-        progress_thread_handle.join().unwrap();
-
-        // Break if stop was clicked
-        if check_was_stopped.load(Ordering::Relaxed) {
-            return false;
+    fn get_and_validate_extension(&self, file_entry: &FileEntry, proper_extension: &str) -> Option<String> {
+        let current_extension;
+        // Extract current extension from file
+        if let Some(extension) = file_entry.path.extension() {
+            let extension = extension.to_string_lossy().to_lowercase();
+            if DISABLED_EXTENSIONS.contains(&extension.as_str()) {
+                return None;
+            }
+            // Text longer than 10 characters is not considered as extension
+            if extension.len() > 10 {
+                current_extension = String::new();
+            } else {
+                current_extension = extension;
+            }
+        } else {
+            current_extension = String::new();
         }
 
-        self.information.number_of_files_with_bad_extension = self.bad_extensions_files.len();
+        // Already have proper extension, no need to do more things
+        if current_extension == proper_extension {
+            return None;
+        }
+        Some(current_extension)
+    }
 
-        Common::print_time(system_time, SystemTime::now(), "bad extension finding");
+    fn check_for_all_extensions_that_file_can_use(
+        &self,
+        hashmap_workarounds: &HashMap<&str, Vec<&str>>,
+        current_extension: &str,
+        proper_extension: &str,
+    ) -> (BTreeSet<String>, String) {
+        let mut all_available_extensions: BTreeSet<String> = Default::default();
+        let valid_extensions = if current_extension.is_empty() {
+            String::new()
+        } else {
+            for mim in mime_guess::from_ext(proper_extension) {
+                if let Some(all_ext) = get_mime_extensions(&mim) {
+                    for ext in all_ext {
+                        all_available_extensions.insert((*ext).to_string());
+                    }
+                }
+            }
 
-        // Clean unused data
-        self.files_to_check = Default::default();
+            // Workarounds
+            if let Some(vec_pre) = hashmap_workarounds.get(current_extension) {
+                for pre in vec_pre {
+                    if all_available_extensions.contains(*pre) {
+                        all_available_extensions.insert(current_extension.to_string());
+                        break;
+                    }
+                }
+            }
 
-        true
+            let mut guessed_multiple_extensions = format!("({proper_extension}) - ");
+            for ext in &all_available_extensions {
+                guessed_multiple_extensions.push_str(ext);
+                guessed_multiple_extensions.push(',');
+            }
+            guessed_multiple_extensions.pop();
+
+            guessed_multiple_extensions
+        };
+        (all_available_extensions, valid_extensions)
     }
 }
 
@@ -492,80 +404,52 @@ impl Default for BadExtensions {
 }
 
 impl DebugPrint for BadExtensions {
-    #[allow(dead_code)]
-    #[allow(unreachable_code)]
-    /// Debugging printing - only available on debug build
     fn debug_print(&self) {
-        #[cfg(not(debug_assertions))]
-        {
+        if !cfg!(debug_assertions) {
             return;
         }
         println!("---------------DEBUG PRINT---------------");
-        println!("### Information's");
-
-        println!("Errors size - {}", self.text_messages.errors.len());
-        println!("Warnings size - {}", self.text_messages.warnings.len());
-        println!("Messages size - {}", self.text_messages.messages.len());
-
-        println!("### Other");
-
-        println!("Excluded items - {:?}", self.excluded_items.items);
-        println!("Included directories - {:?}", self.directories.included_directories);
-        println!("Excluded directories - {:?}", self.directories.excluded_directories);
-        println!("Recursive search - {}", self.recursive_search);
+        self.debug_print_common();
         println!("-----------------------------------------");
     }
 }
 
-impl SaveResults for BadExtensions {
-    fn save_results_to_file(&mut self, file_name: &str) -> bool {
-        let start_time: SystemTime = SystemTime::now();
-        let file_name: String = match file_name {
-            "" => "results.txt".to_string(),
-            k => k.to_string(),
-        };
-
-        let file_handler = match File::create(&file_name) {
-            Ok(t) => t,
-            Err(e) => {
-                self.text_messages.errors.push(format!("Failed to create file {file_name}, reason {e}"));
-                return false;
-            }
-        };
-        let mut writer = BufWriter::new(file_handler);
-
-        if let Err(e) = writeln!(
+impl PrintResults for BadExtensions {
+    fn write_results<T: Write>(&self, writer: &mut T) -> std::io::Result<()> {
+        writeln!(
             writer,
             "Results of searching {:?} with excluded directories {:?} and excluded items {:?}",
-            self.directories.included_directories, self.directories.excluded_directories, self.excluded_items.items
-        ) {
-            self.text_messages.errors.push(format!("Failed to save results to file {file_name}, reason {e}"));
-            return false;
+            self.common_data.directories.included_directories, self.common_data.directories.excluded_directories, self.common_data.excluded_items.items
+        )?;
+        writeln!(writer, "Found {} files with invalid extension.\n", self.information.number_of_files_with_bad_extension)?;
+
+        for file_entry in &self.bad_extensions_files {
+            writeln!(writer, "{} ----- {}", file_entry.path.display(), file_entry.proper_extensions)?;
         }
 
-        if !self.bad_extensions_files.is_empty() {
-            writeln!(writer, "Found {} files with invalid extension.", self.information.number_of_files_with_bad_extension).unwrap();
-            for file_entry in &self.bad_extensions_files {
-                writeln!(writer, "{} ----- {}", file_entry.path.display(), file_entry.proper_extensions).unwrap();
-            }
-        } else {
-            write!(writer, "Not found any files with invalid extension.").unwrap();
-        }
-        Common::print_time(start_time, SystemTime::now(), "save_results_to_file");
-        true
+        Ok(())
+    }
+
+    fn save_results_to_file_as_json(&self, file_name: &str, pretty_print: bool) -> std::io::Result<()> {
+        self.save_results_to_file_as_json_internal(file_name, &self.bad_extensions_files, pretty_print)
     }
 }
 
-impl PrintResults for BadExtensions {
-    /// Print information's about duplicated entries
-    /// Only needed for CLI
-    fn print_results(&self) {
-        let start_time: SystemTime = SystemTime::now();
-        println!("Found {} files with invalid extension.\n", self.information.number_of_files_with_bad_extension);
-        for file_entry in &self.bad_extensions_files {
-            println!("{} ----- {}", file_entry.path.display(), file_entry.proper_extensions);
-        }
+impl BadExtensions {
+    pub const fn get_bad_extensions_files(&self) -> &Vec<BadFileEntry> {
+        &self.bad_extensions_files
+    }
 
-        Common::print_time(start_time, SystemTime::now(), "print_entries");
+    pub const fn get_information(&self) -> &Info {
+        &self.information
+    }
+}
+
+impl CommonData for BadExtensions {
+    fn get_cd(&self) -> &CommonToolData {
+        &self.common_data
+    }
+    fn get_cd_mut(&mut self) -> &mut CommonToolData {
+        &mut self.common_data
     }
 }

@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
 #[cfg(target_family = "unix")]
 use std::{fs, os::unix::fs::MetadataExt};
 
@@ -8,97 +7,74 @@ use crate::common_messages::Messages;
 use crate::flc;
 use crate::localizer_core::generate_translation_hashmap;
 
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Directories {
     pub excluded_directories: Vec<PathBuf>,
     pub included_directories: Vec<PathBuf>,
     pub reference_directories: Vec<PathBuf>,
-    exclude_other_filesystems: Option<bool>,
+    pub exclude_other_filesystems: Option<bool>,
     #[cfg(target_family = "unix")]
-    included_dev_ids: Vec<u64>,
+    pub included_dev_ids: Vec<u64>,
 }
 
 impl Directories {
-    #[must_use]
     pub fn new() -> Self {
         Default::default()
     }
 
-    pub fn set_reference_directory(&mut self, reference_directory: Vec<PathBuf>) {
-        self.reference_directories = reference_directory;
+    pub fn set_reference_directory(&mut self, reference_directory: &[PathBuf]) -> Messages {
+        let mut messages: Messages = Messages::new();
+
+        self.reference_directories = reference_directory
+            .iter()
+            .filter_map(|directory| {
+                let (dir, msg) = Self::canonicalize_and_clear_path(directory, false);
+
+                messages.extend_with_another_messages(msg);
+
+                dir
+            })
+            .collect::<Vec<PathBuf>>();
+
+        messages
     }
 
-    /// Setting included directories, at least one must be provided or scan won't start
-    pub fn set_included_directory(&mut self, included_directory: Vec<PathBuf>, text_messages: &mut Messages) -> bool {
-        let start_time: SystemTime = SystemTime::now();
+    pub fn set_included_directory(&mut self, included_directory: Vec<PathBuf>) -> Messages {
+        let mut messages: Messages = Messages::new();
 
         if included_directory.is_empty() {
-            text_messages.errors.push(flc!("core_missing_no_chosen_included_directory"));
-            return false;
+            messages.errors.push(flc!("core_missing_no_chosen_included_directory"));
+            return messages;
         }
 
         let directories: Vec<PathBuf> = included_directory;
 
         let mut checked_directories: Vec<PathBuf> = Vec::new();
         for directory in directories {
-            if directory.to_string_lossy().contains('*') {
-                text_messages.warnings.push(flc!(
-                    "core_directory_wildcard_no_supported",
-                    generate_translation_hashmap(vec![("path", directory.display().to_string())])
-                ));
-                continue;
-            }
+            let (dir, msg) = Self::canonicalize_and_clear_path(&directory, false);
 
-            #[cfg(not(target_family = "windows"))]
-            if directory.is_relative() {
-                text_messages.warnings.push(flc!(
-                    "core_directory_relative_path",
-                    generate_translation_hashmap(vec![("path", directory.display().to_string())])
-                ));
-                continue;
-            }
-            #[cfg(target_family = "windows")]
-            if directory.is_relative() && !directory.starts_with("\\") {
-                text_messages.warnings.push(flc!(
-                    "core_directory_relative_path",
-                    generate_translation_hashmap(vec![("path", directory.display().to_string())])
-                ));
-                continue;
-            }
+            messages.extend_with_another_messages(msg);
 
-            if !directory.exists() {
-                text_messages.warnings.push(flc!(
-                    "core_directory_must_exists",
-                    generate_translation_hashmap(vec![("path", directory.display().to_string())])
-                ));
-                continue;
+            if let Some(dir) = dir {
+                checked_directories.push(dir);
             }
-            if !directory.is_dir() {
-                text_messages.warnings.push(flc!(
-                    "core_directory_must_be_directory",
-                    generate_translation_hashmap(vec![("path", directory.display().to_string())])
-                ));
-                continue;
-            }
-            checked_directories.push(directory);
         }
 
         if checked_directories.is_empty() {
-            text_messages.warnings.push(flc!("core_included_directory_zero_valid_directories"));
-            return false;
+            messages.warnings.push(flc!("core_included_directory_zero_valid_directories"));
+            return messages;
         }
 
         self.included_directories = checked_directories;
 
-        Common::print_time(start_time, SystemTime::now(), "set_included_directory");
-        true
+        messages
     }
 
-    /// Setting absolute path to exclude from search
-    pub fn set_excluded_directory(&mut self, excluded_directory: Vec<PathBuf>, text_messages: &mut Messages) {
-        let start_time: SystemTime = SystemTime::now();
+    pub fn set_excluded_directory(&mut self, excluded_directory: Vec<PathBuf>) -> Messages {
+        let mut messages: Messages = Messages::new();
+
         if excluded_directory.is_empty() {
-            return;
+            return messages;
         }
 
         let directories: Vec<PathBuf> = excluded_directory;
@@ -107,49 +83,63 @@ impl Directories {
         for directory in directories {
             let directory_as_string = directory.to_string_lossy();
             if directory_as_string == "/" {
-                text_messages.errors.push(flc!("core_excluded_directory_pointless_slash"));
+                messages.errors.push(flc!("core_excluded_directory_pointless_slash"));
                 break;
             }
-            if directory_as_string.contains('*') {
-                text_messages.warnings.push(flc!(
-                    "core_directory_wildcard_no_supported",
-                    generate_translation_hashmap(vec![("path", directory.display().to_string())])
-                ));
-                continue;
-            }
-            #[cfg(not(target_family = "windows"))]
-            if directory.is_relative() {
-                text_messages.warnings.push(flc!(
-                    "core_directory_relative_path",
-                    generate_translation_hashmap(vec![("path", directory.display().to_string())])
-                ));
-                continue;
-            }
-            #[cfg(target_family = "windows")]
-            if directory.is_relative() && !directory.starts_with("\\") {
-                text_messages.warnings.push(flc!(
-                    "core_directory_relative_path",
-                    generate_translation_hashmap(vec![("path", directory.display().to_string())])
-                ));
-                continue;
-            }
 
-            if !directory.exists() {
-                // No error when excluded directories are missing
-                continue;
+            let (dir, msg) = Self::canonicalize_and_clear_path(&directory, true);
+
+            messages.extend_with_another_messages(msg);
+
+            if let Some(dir) = dir {
+                checked_directories.push(dir);
             }
-            if !directory.is_dir() {
-                text_messages.warnings.push(flc!(
-                    "core_directory_must_be_directory",
-                    generate_translation_hashmap(vec![("path", directory.display().to_string())])
-                ));
-                continue;
-            }
-            checked_directories.push(directory);
         }
         self.excluded_directories = checked_directories;
 
-        Common::print_time(start_time, SystemTime::now(), "set_excluded_directory");
+        messages
+    }
+
+    fn canonicalize_and_clear_path(directory: &Path, is_excluded: bool) -> (Option<PathBuf>, Messages) {
+        let mut messages = Messages::new();
+        let mut directory = directory.to_path_buf();
+        if !directory.exists() {
+            if !is_excluded {
+                messages.warnings.push(flc!(
+                    "core_directory_must_exists",
+                    generate_translation_hashmap(vec![("path", directory.display().to_string())])
+                ));
+            }
+            return (None, messages);
+        }
+
+        if !directory.is_dir() {
+            messages.warnings.push(flc!(
+                "core_directory_must_be_directory",
+                generate_translation_hashmap(vec![("path", directory.display().to_string())])
+            ));
+            return (None, messages);
+        }
+
+        // Try to canonicalize them
+
+        if cfg!(windows) {
+            // Only canonicalize if it's not a network path
+            // This can be check by checking if path starts with \\?\UNC\
+            if let Ok(dir_can) = directory.canonicalize() {
+                let dir_can_str = dir_can.to_string_lossy().to_string();
+                if let Some(dir_can_str) = dir_can_str.strip_prefix(r"\\?\") {
+                    if dir_can_str.chars().nth(1) == Some(':') {
+                        directory = PathBuf::from(dir_can_str);
+                    }
+                }
+            }
+        } else {
+            if let Ok(dir) = directory.canonicalize() {
+                directory = dir;
+            }
+        }
+        (Some(directory), messages)
     }
 
     #[cfg(target_family = "unix")]
@@ -157,9 +147,8 @@ impl Directories {
         self.exclude_other_filesystems = Some(exclude_other_filesystems);
     }
 
-    /// Remove unused entries when included or excluded overlaps with each other or are duplicated etc.
-    pub fn optimize_directories(&mut self, recursive_search: bool, text_messages: &mut Messages) -> bool {
-        let start_time: SystemTime = SystemTime::now();
+    pub fn optimize_directories(&mut self, recursive_search: bool) -> Messages {
+        let mut messages: Messages = Messages::new();
 
         let mut optimized_included: Vec<PathBuf> = Vec::new();
         let mut optimized_excluded: Vec<PathBuf> = Vec::new();
@@ -288,14 +277,13 @@ impl Directories {
         }
 
         if self.included_directories.is_empty() {
-            text_messages.errors.push(flc!("core_directory_overlap"));
-            return false;
+            messages.errors.push(flc!("core_directory_overlap"));
+            return messages;
         }
 
         // Not needed, but better is to have sorted everything
         self.excluded_directories.sort_unstable();
         self.included_directories.sort_unstable();
-        Common::print_time(start_time, SystemTime::now(), "optimize_directories");
 
         // Get device IDs for included directories
         #[cfg(target_family = "unix")]
@@ -303,7 +291,7 @@ impl Directories {
             for d in &self.included_directories {
                 match fs::metadata(d) {
                     Ok(m) => self.included_dev_ids.push(m.dev()),
-                    Err(_) => text_messages.errors.push(flc!(
+                    Err(_) => messages.errors.push(flc!(
                         "core_directory_unable_to_get_device_id",
                         generate_translation_hashmap(vec![("path", d.display().to_string())])
                     )),
@@ -311,10 +299,13 @@ impl Directories {
             }
         }
 
-        true
+        messages
     }
 
-    /// Checks whether a specified directory is excluded from searching
+    pub fn is_in_referenced_directory(&self, path: &Path) -> bool {
+        self.reference_directories.iter().any(|e| path.starts_with(e))
+    }
+
     pub fn is_excluded(&self, path: impl AsRef<Path>) -> bool {
         let path = path.as_ref();
         #[cfg(target_family = "windows")]
@@ -324,13 +315,10 @@ impl Directories {
     }
 
     #[cfg(target_family = "unix")]
-    #[must_use]
     pub fn exclude_other_filesystems(&self) -> bool {
         self.exclude_other_filesystems.unwrap_or(false)
     }
 
-    /// Checks whether a specified directory is on other filesystems rather then include
-    /// directories
     #[cfg(target_family = "unix")]
     pub fn is_on_other_filesystems(&self, path: impl AsRef<Path>) -> Result<bool, String> {
         let path = path.as_ref();

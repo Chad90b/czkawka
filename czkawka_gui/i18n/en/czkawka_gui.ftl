@@ -16,6 +16,23 @@ music_bitrate_checkbox = Bitrate
 music_genre_checkbox = Genre
 music_length_checkbox = Length
 music_comparison_checkbox = Approximate Comparison
+music_checking_by_tags = Tags
+music_checking_by_content = Content
+same_music_seconds_label = Minimal fragment second duration
+same_music_similarity_label = Maximum difference
+
+same_music_tooltip =
+        Searching for similar music files by its content can be configured by setting:
+
+        - The minimum fragment time after which music files can be identified as similar
+        - The maximum difference difference between two tested fragments
+
+        The key to good results is to find sensible combinations of these parameters, for provided.
+
+        Setting the minimum time to 5s and the maximum difference to 1.0, will look for almost identical fragments in the files.
+        A time of 20s and a maximum difference of 6.0, on the other hand, works well for finding remixes/live versions etc.
+
+        By default, each music file is compared to each other and this can take a lot of time when testing many files, so it is usually better to use reference folders and specifying which files are to be compared with each other(with same amount of files, comparing fingerprints will be faster at least 4x than without reference folders).
 
 music_comparison_checkbox_tooltip =
         It searches for similar music files using AI, which uses machine learning to remove parentheses from a phrase. For example, with this option enabled, the files in question will be considered duplicates:
@@ -28,6 +45,7 @@ duplicate_case_sensitive_name_tooltip =
 
         Disabling such option will group names without checking if each letter is same size e.g. żoŁD <-> Żołd
 
+duplicate_mode_size_name_combo_box = Size and Name
 duplicate_mode_name_combo_box = Name
 duplicate_mode_size_combo_box = Size
 duplicate_mode_hash_combo_box = Hash
@@ -364,7 +382,7 @@ settings_multiple_clear_cache_button_tooltip =
         Manually clear the cache of outdated entries.
         This should only be used if automatic clearing has been disabled.
 
-settings_multiple_clear_cache_button = Remove outdated results from images cache
+settings_multiple_clear_cache_button = Remove outdated results from cache.
 
 ## Duplicates
 settings_duplicates_hide_hard_link_button_tooltip = 
@@ -445,11 +463,20 @@ progress_scanning_image = Hashing of {$file_checked}/{$all_files} image
 progress_comparing_image_hashes = Comparing {$file_checked}/{$all_files} image hash
 progress_scanning_music_tags_end = Comparing tags of {$file_checked}/{$all_files} music file
 progress_scanning_music_tags = Reading tags of {$file_checked}/{$all_files} music file
+progress_scanning_music_content_end = Comparing fingerprint of {$file_checked}/{$all_files} music file
+progress_scanning_music_content = Calculating fingerprint of {$file_checked}/{$all_files} music file
 progress_scanning_empty_folders = Scanning {$folder_number} folder
 progress_scanning_size = Scanning size of {$file_number} file
+progress_scanning_size_name = Scanning name and size of {$file_number} file
 progress_scanning_name = Scanning name of {$file_number} file
 progress_analyzed_partial_hash = Analyzed partial hash of {$file_checked}/{$all_files} files
 progress_analyzed_full_hash = Analyzed full hash of {$file_checked}/{$all_files} files
+progress_prehash_cache_loading = Loading prehash cache
+progress_prehash_cache_saving = Saving prehash cache
+progress_hash_cache_loading = Loading hash cache
+progress_hash_cache_saving = Saving hash cache
+progress_cache_loading = Loading cache
+progress_cache_saving = Saving cache
 
 progress_current_stage = Current Stage:{"  "}
 progress_all_stages = All Stages:{"  "}
@@ -517,7 +544,7 @@ move_files_title_dialog = Choose folder to which you want to move duplicated fil
 move_files_choose_more_than_1_path = Only one path may be selected to be able to copy their duplicated files, selected {$path_number}.
 move_stats = Properly moved {$num_files}/{$all_files} items
 
-save_results_to_file = Saved results to file {$name}
+save_results_to_file = Saved results both to txt and json files.
 
 search_not_choosing_any_music = ERROR: You must select at least one checkbox with music searching types.
 search_not_choosing_any_broken_files = ERROR: You must select at least one checkbox with type of checked broken files.
