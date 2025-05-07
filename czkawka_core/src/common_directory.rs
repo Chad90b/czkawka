@@ -2,10 +2,9 @@ use std::path::{Path, PathBuf};
 #[cfg(target_family = "unix")]
 use std::{fs, os::unix::fs::MetadataExt};
 
-use crate::common::Common;
+use crate::common::normalize_windows_path;
 use crate::common_messages::Messages;
 use crate::flc;
-use crate::localizer_core::generate_translation_hashmap;
 
 #[derive(Debug, Clone, Default)]
 pub struct Directories {
@@ -105,27 +104,22 @@ impl Directories {
         let mut directory = directory.to_path_buf();
         if !directory.exists() {
             if !is_excluded {
-                messages.warnings.push(flc!(
-                    "core_directory_must_exists",
-                    generate_translation_hashmap(vec![("path", directory.display().to_string())])
-                ));
+                messages.warnings.push(flc!("core_directory_must_exists", path = directory.to_string_lossy().to_string()));
             }
             return (None, messages);
         }
 
         if !directory.is_dir() {
-            messages.warnings.push(flc!(
-                "core_directory_must_be_directory",
-                generate_translation_hashmap(vec![("path", directory.display().to_string())])
-            ));
+            messages
+                .warnings
+                .push(flc!("core_directory_must_be_directory", path = directory.to_string_lossy().to_string()));
             return (None, messages);
         }
 
         // Try to canonicalize them
-
         if cfg!(windows) {
             // Only canonicalize if it's not a network path
-            // This can be check by checking if path starts with \\?\UNC\
+            // This can be done by checking if path starts with \\?\UNC\
             if let Ok(dir_can) = directory.canonicalize() {
                 let dir_can_str = dir_can.to_string_lossy().to_string();
                 if let Some(dir_can_str) = dir_can_str.strip_prefix(r"\\?\") {
@@ -154,9 +148,9 @@ impl Directories {
         let mut optimized_excluded: Vec<PathBuf> = Vec::new();
 
         if cfg!(target_family = "windows") {
-            self.included_directories = self.included_directories.iter().map(Common::normalize_windows_path).collect();
-            self.excluded_directories = self.excluded_directories.iter().map(Common::normalize_windows_path).collect();
-            self.reference_directories = self.reference_directories.iter().map(Common::normalize_windows_path).collect();
+            self.included_directories = self.included_directories.iter().map(normalize_windows_path).collect();
+            self.excluded_directories = self.excluded_directories.iter().map(normalize_windows_path).collect();
+            self.reference_directories = self.reference_directories.iter().map(normalize_windows_path).collect();
         }
 
         // Remove duplicated entries like: "/", "/"
@@ -291,10 +285,7 @@ impl Directories {
             for d in &self.included_directories {
                 match fs::metadata(d) {
                     Ok(m) => self.included_dev_ids.push(m.dev()),
-                    Err(_) => messages.errors.push(flc!(
-                        "core_directory_unable_to_get_device_id",
-                        generate_translation_hashmap(vec![("path", d.display().to_string())])
-                    )),
+                    Err(_) => messages.errors.push(flc!("core_directory_unable_to_get_device_id", path = d.to_string_lossy().to_string())),
                 }
             }
         }
@@ -306,10 +297,9 @@ impl Directories {
         self.reference_directories.iter().any(|e| path.starts_with(e))
     }
 
-    pub fn is_excluded(&self, path: impl AsRef<Path>) -> bool {
-        let path = path.as_ref();
+    pub fn is_excluded(&self, path: &Path) -> bool {
         #[cfg(target_family = "windows")]
-        let path = Common::normalize_windows_path(path);
+        let path = normalize_windows_path(path);
         // We're assuming that `excluded_directories` are already normalized
         self.excluded_directories.iter().any(|p| p.as_path() == path)
     }
@@ -324,10 +314,7 @@ impl Directories {
         let path = path.as_ref();
         match fs::metadata(path) {
             Ok(m) => Ok(!self.included_dev_ids.iter().any(|&id| id == m.dev())),
-            Err(_) => Err(flc!(
-                "core_directory_unable_to_get_device_id",
-                generate_translation_hashmap(vec![("path", path.display().to_string())])
-            )),
+            Err(_) => Err(flc!("core_directory_unable_to_get_device_id", path = path.to_string_lossy().to_string())),
         }
     }
 }

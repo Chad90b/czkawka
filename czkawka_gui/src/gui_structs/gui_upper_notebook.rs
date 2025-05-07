@@ -3,7 +3,7 @@ use gtk4::{EventControllerKey, GestureClick, TreeView};
 
 use crate::help_functions::{get_all_direct_children, get_custom_label_from_widget, set_icon_of_button};
 use crate::notebook_enums::NotebookUpperEnum;
-use crate::{flg, CZK_ICON_ADD, CZK_ICON_DELETE, CZK_ICON_MANUAL_ADD};
+use crate::{CZK_ICON_ADD, CZK_ICON_DELETE, CZK_ICON_MANUAL_ADD, flg};
 
 #[derive(Clone)]
 pub struct GuiUpperNotebook {
@@ -23,6 +23,7 @@ pub struct GuiUpperNotebook {
 
     pub entry_excluded_items: gtk4::Entry,
     pub entry_allowed_extensions: gtk4::Entry,
+    pub entry_excluded_extensions: gtk4::Entry,
 
     pub check_button_recursive: gtk4::CheckButton,
 
@@ -35,6 +36,7 @@ pub struct GuiUpperNotebook {
 
     pub label_excluded_items: gtk4::Label,
     pub label_allowed_extensions: gtk4::Label,
+    pub label_excluded_extensions: gtk4::Label,
 
     pub entry_general_minimal_size: gtk4::Entry,
     pub entry_general_maximal_size: gtk4::Entry,
@@ -45,10 +47,10 @@ pub struct GuiUpperNotebook {
 
 impl GuiUpperNotebook {
     pub fn create_from_builder(builder: &gtk4::Builder) -> Self {
-        let notebook_upper: gtk4::Notebook = builder.object("notebook_upper").unwrap();
+        let notebook_upper: gtk4::Notebook = builder.object("notebook_upper").expect("Cambalache");
 
-        let scrolled_window_included_directories: gtk4::ScrolledWindow = builder.object("scrolled_window_included_directories").unwrap();
-        let scrolled_window_excluded_directories: gtk4::ScrolledWindow = builder.object("scrolled_window_excluded_directories").unwrap();
+        let scrolled_window_included_directories: gtk4::ScrolledWindow = builder.object("scrolled_window_included_directories").expect("Cambalache");
+        let scrolled_window_excluded_directories: gtk4::ScrolledWindow = builder.object("scrolled_window_excluded_directories").expect("Cambalache");
 
         let tree_view_included_directories: TreeView = TreeView::new();
         let tree_view_excluded_directories: TreeView = TreeView::new();
@@ -63,26 +65,28 @@ impl GuiUpperNotebook {
         let gc_tree_view_excluded_directories: GestureClick = GestureClick::new();
         tree_view_excluded_directories.add_controller(gc_tree_view_excluded_directories.clone());
 
-        let entry_allowed_extensions: gtk4::Entry = builder.object("entry_allowed_extensions").unwrap();
-        let entry_excluded_items: gtk4::Entry = builder.object("entry_excluded_items").unwrap();
+        let entry_allowed_extensions: gtk4::Entry = builder.object("entry_allowed_extensions").expect("Cambalache");
+        let entry_excluded_extensions: gtk4::Entry = builder.object("entry_excluded_extensions").expect("Cambalache");
+        let entry_excluded_items: gtk4::Entry = builder.object("entry_excluded_items").expect("Cambalache");
 
-        let check_button_recursive: gtk4::CheckButton = builder.object("check_button_recursive").unwrap();
+        let check_button_recursive: gtk4::CheckButton = builder.object("check_button_recursive").expect("Cambalache");
 
-        let buttons_manual_add_included_directory: gtk4::Button = builder.object("buttons_manual_add_included_directory").unwrap();
-        let buttons_add_included_directory: gtk4::Button = builder.object("buttons_add_included_directory").unwrap();
-        let buttons_remove_included_directory: gtk4::Button = builder.object("buttons_remove_included_directory").unwrap();
-        let buttons_manual_add_excluded_directory: gtk4::Button = builder.object("buttons_manual_add_excluded_directory").unwrap();
-        let buttons_add_excluded_directory: gtk4::Button = builder.object("buttons_add_excluded_directory").unwrap();
-        let buttons_remove_excluded_directory: gtk4::Button = builder.object("buttons_remove_excluded_directory").unwrap();
+        let buttons_manual_add_included_directory: gtk4::Button = builder.object("buttons_manual_add_included_directory").expect("Cambalache");
+        let buttons_add_included_directory: gtk4::Button = builder.object("buttons_add_included_directory").expect("Cambalache");
+        let buttons_remove_included_directory: gtk4::Button = builder.object("buttons_remove_included_directory").expect("Cambalache");
+        let buttons_manual_add_excluded_directory: gtk4::Button = builder.object("buttons_manual_add_excluded_directory").expect("Cambalache");
+        let buttons_add_excluded_directory: gtk4::Button = builder.object("buttons_add_excluded_directory").expect("Cambalache");
+        let buttons_remove_excluded_directory: gtk4::Button = builder.object("buttons_remove_excluded_directory").expect("Cambalache");
 
-        let label_excluded_items: gtk4::Label = builder.object("label_excluded_items").unwrap();
-        let label_allowed_extensions: gtk4::Label = builder.object("label_allowed_extensions").unwrap();
+        let label_excluded_items: gtk4::Label = builder.object("label_excluded_items").expect("Cambalache");
+        let label_allowed_extensions: gtk4::Label = builder.object("label_allowed_extensions").expect("Cambalache");
+        let label_excluded_extensions: gtk4::Label = builder.object("label_excluded_extensions").expect("Cambalache");
 
-        let entry_general_minimal_size: gtk4::Entry = builder.object("entry_general_minimal_size").unwrap();
-        let entry_general_maximal_size: gtk4::Entry = builder.object("entry_general_maximal_size").unwrap();
-        let label_general_size_bytes: gtk4::Label = builder.object("label_general_size_bytes").unwrap();
-        let label_general_min_size: gtk4::Label = builder.object("label_general_min_size").unwrap();
-        let label_general_max_size: gtk4::Label = builder.object("label_general_max_size").unwrap();
+        let entry_general_minimal_size: gtk4::Entry = builder.object("entry_general_minimal_size").expect("Cambalache");
+        let entry_general_maximal_size: gtk4::Entry = builder.object("entry_general_maximal_size").expect("Cambalache");
+        let label_general_size_bytes: gtk4::Label = builder.object("label_general_size_bytes").expect("Cambalache");
+        let label_general_min_size: gtk4::Label = builder.object("label_general_min_size").expect("Cambalache");
+        let label_general_max_size: gtk4::Label = builder.object("label_general_max_size").expect("Cambalache");
 
         set_icon_of_button(&buttons_add_included_directory, CZK_ICON_ADD);
         set_icon_of_button(&buttons_manual_add_included_directory, CZK_ICON_MANUAL_ADD);
@@ -103,6 +107,7 @@ impl GuiUpperNotebook {
             gc_tree_view_excluded_directories,
             entry_excluded_items,
             entry_allowed_extensions,
+            entry_excluded_extensions,
             check_button_recursive,
             buttons_manual_add_included_directory,
             buttons_add_included_directory,
@@ -112,6 +117,7 @@ impl GuiUpperNotebook {
             buttons_remove_excluded_directory,
             label_excluded_items,
             label_allowed_extensions,
+            label_excluded_extensions,
             entry_general_minimal_size,
             entry_general_maximal_size,
             label_general_size_bytes,
@@ -141,11 +147,14 @@ impl GuiUpperNotebook {
 
         self.label_allowed_extensions.set_tooltip_text(Some(&flg!("upper_allowed_extensions_tooltip")));
         self.entry_allowed_extensions.set_tooltip_text(Some(&flg!("upper_allowed_extensions_tooltip")));
+        self.label_excluded_extensions.set_tooltip_text(Some(&flg!("upper_excluded_extensions_tooltip")));
+        self.entry_excluded_extensions.set_tooltip_text(Some(&flg!("upper_excluded_extensions_tooltip")));
         self.label_excluded_items.set_tooltip_text(Some(&flg!("upper_excluded_items_tooltip")));
         self.entry_excluded_items.set_tooltip_text(Some(&flg!("upper_excluded_items_tooltip")));
 
         self.label_excluded_items.set_label(&flg!("upper_excluded_items"));
         self.label_allowed_extensions.set_label(&flg!("upper_allowed_extensions"));
+        self.label_excluded_extensions.set_label(&flg!("upper_excluded_extensions"));
 
         self.label_general_size_bytes.set_label(&flg!("main_label_size_bytes"));
         self.label_general_min_size.set_label(&flg!("main_label_min_size"));
@@ -168,9 +177,9 @@ impl GuiUpperNotebook {
         ] {
             self.notebook_upper
                 .tab_label(&vec_children[upper_enum])
-                .unwrap()
+                .expect("Failed to get tab label")
                 .downcast::<gtk4::Label>()
-                .unwrap()
+                .expect("Failed to downcast to label")
                 .set_text(&fl_thing);
         }
 
@@ -181,7 +190,7 @@ impl GuiUpperNotebook {
             ], // Included folders
         ];
 
-        for (notebook_index, tree_view) in [self.tree_view_included_directories.clone()].iter().enumerate() {
+        for (notebook_index, tree_view) in std::iter::once(&self.tree_view_included_directories.clone()).enumerate() {
             for (column_index, column) in tree_view.columns().iter().enumerate() {
                 column.set_title(&names_of_columns[notebook_index][column_index]);
             }

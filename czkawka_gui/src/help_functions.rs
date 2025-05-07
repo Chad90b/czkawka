@@ -1,42 +1,41 @@
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::io::BufReader;
-use std::path::PathBuf;
+use std::path::{MAIN_SEPARATOR, PathBuf};
+use std::rc::Rc;
 
+use czkawka_core::common_dir_traversal;
+use czkawka_core::common_messages::Messages;
+use czkawka_core::tools::bad_extensions::BadExtensions;
+use czkawka_core::tools::big_file::BigFile;
+use czkawka_core::tools::broken_files::BrokenFiles;
+use czkawka_core::tools::duplicate::DuplicateFinder;
+use czkawka_core::tools::empty_files::EmptyFiles;
+use czkawka_core::tools::empty_folder::EmptyFolder;
+use czkawka_core::tools::invalid_symlinks::InvalidSymlinks;
+use czkawka_core::tools::same_music::SameMusic;
+use czkawka_core::tools::similar_images::SimilarImages;
+use czkawka_core::tools::similar_videos::SimilarVideos;
+use czkawka_core::tools::temporary::Temporary;
 use gdk4::gdk_pixbuf::{InterpType, Pixbuf};
 use glib::Error;
 use gtk4::prelude::*;
 use gtk4::{ListStore, Scale, ScrollType, TextView, TreeView, Widget};
 use image::codecs::jpeg::JpegEncoder;
 use image::{DynamicImage, EncodableLayout};
+use log::debug;
 use once_cell::sync::OnceCell;
-
-use czkawka_core::bad_extensions::BadExtensions;
-use czkawka_core::big_file::BigFile;
-use czkawka_core::broken_files::BrokenFiles;
-use czkawka_core::common_dir_traversal;
-use czkawka_core::common_messages::Messages;
-use czkawka_core::duplicate::DuplicateFinder;
-use czkawka_core::empty_files::EmptyFiles;
-use czkawka_core::empty_folder::EmptyFolder;
-use czkawka_core::invalid_symlinks::InvalidSymlinks;
-use czkawka_core::same_music::SameMusic;
-use czkawka_core::similar_images::SimilarImages;
-use czkawka_core::similar_videos::SimilarVideos;
-use czkawka_core::temporary::Temporary;
 
 use crate::flg;
 use crate::notebook_enums::{NotebookMainEnum, NotebookUpperEnum};
-use crate::notebook_info::{NotebookObject, NOTEBOOKS_INFO};
-
-#[cfg(not(target_family = "windows"))]
-pub const CHARACTER: char = '/';
-#[cfg(target_family = "windows")]
-pub const CHARACTER: char = '\\';
+use crate::notebook_info::{NOTEBOOKS_INFO, NotebookObject};
 
 pub const KEY_DELETE: u32 = 119;
 pub const KEY_ENTER: u32 = 36;
 pub const KEY_SPACE: u32 = 65;
+
+pub type SharedState<T> = Rc<RefCell<Option<T>>>;
 
 // pub const KEY_DOWN: u32 = 116;
 // pub const KEY_UP: u32 = 111;
@@ -321,7 +320,15 @@ pub fn add_text_to_text_view(text_view: &TextView, string_to_append: &str) {
 
 pub fn set_buttons(hashmap: &mut HashMap<BottomButtonsEnum, bool>, buttons_array: &[Widget], button_names: &[BottomButtonsEnum]) {
     for (index, button) in buttons_array.iter().enumerate() {
-        if *hashmap.get_mut(&button_names[index]).unwrap() {
+        if button_names[index] == BottomButtonsEnum::Sort {
+            // TODO - sort button is broken, I don't have skills and time to fix it
+            // The problem is that to speedup sorting, we operate on item iters
+            // To fix this, we should just take entire model and sort it, which will be slow in some cases
+            // Alternatively, just current operations on iters should be fixed(I cannot find exact problem)
+            continue;
+        }
+
+        if *hashmap.get_mut(&button_names[index]).expect("Invalid button name") {
             button.show();
         } else {
             button.hide();
@@ -335,7 +342,7 @@ pub fn hide_all_buttons(buttons_array: &[Widget]) {
     }
 }
 
-pub fn get_text_from_invalid_symlink_cause(error: &common_dir_traversal::ErrorType) -> String {
+pub fn get_text_from_invalid_symlink_cause(error: common_dir_traversal::ErrorType) -> String {
     match error {
         common_dir_traversal::ErrorType::InfiniteRecursion => flg!("invalid_symlink_infinite_recursion"),
         common_dir_traversal::ErrorType::NonExistentFile => flg!("invalid_symlink_non_existent_destination"),
@@ -343,11 +350,11 @@ pub fn get_text_from_invalid_symlink_cause(error: &common_dir_traversal::ErrorTy
 }
 
 pub fn get_list_store(tree_view: &TreeView) -> ListStore {
-    tree_view.model().unwrap().downcast::<ListStore>().unwrap()
+    tree_view.model().expect("Tree view have no model").downcast::<ListStore>().expect("Model is not ListStore")
 }
 
 pub fn get_dialog_box_child(dialog: &gtk4::Dialog) -> gtk4::Box {
-    dialog.child().unwrap().downcast::<gtk4::Box>().unwrap()
+    dialog.child().expect("Dialog have no chile").downcast::<gtk4::Box>().expect("Dialog child is not Box")
 }
 
 pub fn change_dimension_to_krotka(dimensions: &str) -> (u64, u64) {
@@ -406,7 +413,7 @@ pub fn get_tree_view_name_from_notebook_upper_enum(notebook_upper_enum: Notebook
     match notebook_upper_enum {
         NotebookUpperEnum::IncludedDirectories => "tree_view_upper_included_directories",
         NotebookUpperEnum::ExcludedDirectories => "tree_view_upper_excluded_directories",
-        _ => panic!(),
+        NotebookUpperEnum::ItemsConfiguration => panic!(),
     }
 }
 
@@ -418,7 +425,7 @@ pub fn get_notebook_object_from_tree_view(tree_view: &TreeView) -> &NotebookObje
 pub fn get_full_name_from_path_name(path: &str, name: &str) -> String {
     let mut string = String::with_capacity(path.len() + name.len() + 1);
     string.push_str(path);
-    string.push(CHARACTER);
+    string.push(MAIN_SEPARATOR);
     string.push_str(name);
     string
 }
@@ -483,9 +490,6 @@ pub fn clean_invalid_headers(model: &ListStore, column_header: i32, column_path:
                     }
                 }
             }
-            for tree_path in vec_tree_path_to_delete.iter().rev() {
-                model.remove(&model.iter(tree_path).unwrap());
-            }
         }
         // Non empty means that header points at reference folder
         else {
@@ -531,9 +535,9 @@ pub fn clean_invalid_headers(model: &ListStore, column_header: i32, column_path:
                     }
                 }
             }
-            for tree_path in vec_tree_path_to_delete.iter().rev() {
-                model.remove(&model.iter(tree_path).unwrap());
-            }
+        }
+        for tree_path in vec_tree_path_to_delete.iter().rev() {
+            model.remove(&model.iter(tree_path).expect("Using invalid tree_path"));
         }
     }
 
@@ -620,7 +624,7 @@ pub fn count_number_of_groups(tree_view: &TreeView, column_header: i32) -> u32 {
 pub fn resize_pixbuf_dimension(pixbuf: &Pixbuf, requested_size: (i32, i32), interp_type: InterpType) -> Option<Pixbuf> {
     let current_ratio = pixbuf.width() as f32 / pixbuf.height() as f32;
     let mut new_size;
-    match current_ratio.partial_cmp(&(requested_size.0 as f32 / requested_size.1 as f32)).unwrap() {
+    match current_ratio.total_cmp(&(requested_size.0 as f32 / requested_size.1 as f32)) {
         Ordering::Greater => {
             new_size = (requested_size.0, (pixbuf.height() * requested_size.0) / pixbuf.width());
             new_size = (std::cmp::max(new_size.0, 1), std::cmp::max(new_size.1, 1));
@@ -630,7 +634,7 @@ pub fn resize_pixbuf_dimension(pixbuf: &Pixbuf, requested_size: (i32, i32), inte
             new_size = (std::cmp::max(new_size.0, 1), std::cmp::max(new_size.1, 1));
         }
         Ordering::Equal => {
-            new_size = (requested_size.0, requested_size.1);
+            new_size = requested_size;
             new_size = (std::cmp::max(new_size.0, 1), std::cmp::max(new_size.1, 1));
         }
     }
@@ -690,14 +694,14 @@ pub fn debug_print_widget<P: IsA<Widget>>(item: &P) {
     let mut widgets_to_check = vec![(0, 0, item.clone().upcast::<Widget>())];
 
     let mut next_free_number = 1;
-    println!("{}, {}, {:?} ", widgets_to_check[0].0, widgets_to_check[0].1, widgets_to_check[0].2);
+    debug!("{}, {}, {:?} ", widgets_to_check[0].0, widgets_to_check[0].1, widgets_to_check[0].2);
 
     while let Some((current_number, parent_number, widget)) = widgets_to_check.pop() {
         for widget in get_all_direct_children(&widget) {
             widgets_to_check.push((next_free_number, current_number, widget));
             next_free_number += 1;
         }
-        println!("{current_number}, {parent_number}, {widget:?} ");
+        debug!("{current_number}, {parent_number}, {widget:?} ");
     }
 }
 
@@ -735,8 +739,8 @@ const TYPE_OF_INTERPOLATION: InterpType = InterpType::Tiles;
 
 pub fn set_icon_of_button<P: IsA<Widget>>(button: &P, data: &'static [u8]) {
     let image = get_custom_image_from_widget(&button.clone());
-    let pixbuf = Pixbuf::from_read(BufReader::new(data)).unwrap();
-    let pixbuf = pixbuf.scale_simple(SIZE_OF_ICON, SIZE_OF_ICON, TYPE_OF_INTERPOLATION).unwrap();
+    let pixbuf = Pixbuf::from_read(BufReader::new(data)).expect("Failed to create pixbuf from data");
+    let pixbuf = pixbuf.scale_simple(SIZE_OF_ICON, SIZE_OF_ICON, TYPE_OF_INTERPOLATION).expect("Failed to scale pixbuf");
     image.set_from_pixbuf(Some(&pixbuf));
 }
 
@@ -744,12 +748,14 @@ static mut IMAGE_PREVIEW_ARRAY: OnceCell<Vec<u8>> = OnceCell::new();
 
 pub fn get_pixbuf_from_dynamic_image(dynamic_image: &DynamicImage) -> Result<Pixbuf, Error> {
     let mut output = Vec::new();
-    JpegEncoder::new(&mut output).encode_image(dynamic_image).unwrap();
+    JpegEncoder::new(&mut output).encode_image(dynamic_image).expect("Failed to encode jpeg image"); // TODO remove here unwrap
     let arra;
+    // TODO - this code can really be broken, but I couldn't find better solution
+    #[allow(static_mut_refs)]
     unsafe {
         IMAGE_PREVIEW_ARRAY.take();
-        IMAGE_PREVIEW_ARRAY.set(output).unwrap();
-        arra = IMAGE_PREVIEW_ARRAY.get().unwrap().as_bytes();
+        IMAGE_PREVIEW_ARRAY.set(output).expect("Setting image preview array failed");
+        arra = IMAGE_PREVIEW_ARRAY.get().expect("Getting image preview array failed").as_bytes();
     }
     Pixbuf::from_read(arra)
 }
@@ -808,8 +814,8 @@ pub fn scale_step_function(scale: &Scale, _scroll_type: ScrollType, value: f64) 
 
 #[cfg(test)]
 mod test {
-    use glib::types::Type;
     use glib::Value;
+    use glib::types::Type;
     use gtk4::prelude::*;
     use gtk4::{Orientation, TreeView};
     use image::DynamicImage;
@@ -933,10 +939,10 @@ mod test {
     #[test]
     fn test_pixbuf_from_dynamic_image() {
         let dynamic_image = DynamicImage::new_rgb8(1, 1);
-        get_pixbuf_from_dynamic_image(&dynamic_image).unwrap();
-        get_pixbuf_from_dynamic_image(&dynamic_image).unwrap();
-        get_pixbuf_from_dynamic_image(&dynamic_image).unwrap();
-        get_pixbuf_from_dynamic_image(&dynamic_image).unwrap();
+        get_pixbuf_from_dynamic_image(&dynamic_image).expect("Failed to get pixbuf from dynamic image");
+        get_pixbuf_from_dynamic_image(&dynamic_image).expect("Failed to get pixbuf from dynamic image");
+        get_pixbuf_from_dynamic_image(&dynamic_image).expect("Failed to get pixbuf from dynamic image");
+        get_pixbuf_from_dynamic_image(&dynamic_image).expect("Failed to get pixbuf from dynamic image");
     }
 
     #[test]

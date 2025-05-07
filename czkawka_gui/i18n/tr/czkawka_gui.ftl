@@ -14,22 +14,27 @@ music_bitrate_checkbox = Bit-hızı
 music_genre_checkbox = Müzik Türü
 music_length_checkbox = Uzunluk
 music_comparison_checkbox = Yaklaşık Karşılaştırma
-music_checking_by_tags = Tags
-music_checking_by_content = Content
-same_music_seconds_label = Minimal fragment second duration
-same_music_similarity_label = Maximum difference
+music_checking_by_tags = Etiketler
+music_checking_by_content = İçerik
+same_music_seconds_label = Minimal parça saniyesel süresi
+same_music_similarity_label = Maksimum fark
+music_compare_only_in_title_group = Yalnızca başlıkla karşılaştırın
+music_compare_only_in_title_group_tooltip =
+    Etkinleştirildiğinde dosyalar başlığa göre gruplandırılır ve ardından birbirleriyle karşılaştırılır.
+    
+    10.000 dosya ile neredeyse 100 milyon karşılaştırma yerine genellikle 20.000 civarında karşılaştırma olacaktır.
 same_music_tooltip =
-    Searching for similar music files by its content can be configured by setting:
+    İçeriğine göre benzer müzik dosyalarının aranması ayarlanarak yapılandırılabilir:
     
-    - The minimum fragment time after which music files can be identified as similar
-    - The maximum difference difference between two tested fragments
+    - Müzik dosyalarının benzer olarak tanımlanabileceği minimum parça süresi
+    - Test edilen iki parça arasındaki maksimum fark
     
-    The key to good results is to find sensible combinations of these parameters, for provided.
+    İyi sonuçlar elde etmenin anahtarı, bu parametrelerin mantıklı kombinasyonlarını bulmaktır.
     
-    Setting the minimum time to 5s and the maximum difference to 1.0, will look for almost identical fragments in the files.
-    A time of 20s and a maximum difference of 6.0, on the other hand, works well for finding remixes/live versions etc.
+    Minimum süreyi 5 saniye ve maksimum farkı 1.0 olarak ayarlamak, dosyalarda neredeyse aynı parçaları arayacaktır.
+    Öte yandan, 20 saniyelik bir süre ve 6.0'lık bir maksimum fark, remiksleri / canlı sürümleri vb. bulmak için iyi çalışır.
     
-    By default, each music file is compared to each other and this can take a lot of time when testing many files, so it is usually better to use reference folders and specifying which files are to be compared with each other(with same amount of files, comparing fingerprints will be faster at least 4x than without reference folders).
+    Varsayılan olarak, her müzik dosyası birbiriyle karşılaştırılır ve çok sayıda dosyayı test ederken bu çok zaman alabilir, bu nedenle genellikle referans klasörleri kullanmak ve hangi dosyaların birbiriyle karşılaştırılacağını belirtmek daha iyidir (aynı miktarda dosya ile, parmak izlerini karşılaştırmak referans klasörleri olmadan en az 4 kat daha hızlı olacaktır).
 music_comparison_checkbox_tooltip =
     Yapay zeka kullanarak benzer müzik dosyalarını arar. 
     Örneğin, bir tümcenin parantezlerini kaldırmak için makine öğrenimini kullanır. 
@@ -47,10 +52,10 @@ duplicate_case_sensitive_name_tooltip =
     denetlemeden aynı adları eşleyip grup oluşturur.
     
     fatih.kavalci <--> FatiH.KaVaLCi
-duplicate_mode_size_name_combo_box = Size and Name
+duplicate_mode_size_name_combo_box = Boyut ve Ad Karşılaştırma
 duplicate_mode_name_combo_box = Ad Karşılaştırma
 duplicate_mode_size_combo_box = Boyut Karşılaştırma
-duplicate_mode_hash_combo_box = Özet Değeri
+duplicate_mode_hash_combo_box = Hash
 duplicate_hash_type_tooltip =
     Czkawka, 3 tür Sabit Uzunlukta Çıktı (SUÇ) üretimi sunar:
     
@@ -74,30 +79,21 @@ duplicate_check_method_tooltip =
     Czkawka, önbelleği yoğun olarak kullanır. Bu nedenle aynı verilerin ikinci ve sonraki taramaları 
     ilkinden çok daha hızlı olmalıdır.
 image_hash_size_tooltip =
-    Resim dosyalarının karşılaştırılması için her resim dosyasından özel bir hash 
-    (Sabit Uzunluklu Resim Çıktısı : SURÇ) üretilmelidir. İki resmin SURÇ farkı küçük ise 
-    bu resimlerin benzer olduğu anlamına gelir.
+    Kontrol edilen her resim, birbiriyle karşılaştırılabilen özel bir hash üretir ve aralarındaki küçük bir fark, bu görüntülerin benzer olduğu anlamına gelir.
     
-    8'lik SURÇ boyutu aslına çok az benzeyen resimleri bulmak için oldukça iyidir. 
-    Büyük (>1000) resim kümelerinde çok sayıda hatalı eşleştirme yapacaktır. Bu nedenlenle 
-    büyük resim kümeleri ile çalışırken daha büyük bir SURÇ boyutu kullanmanız önerilir.
+    8 hash boyutu, orijinaline çok az benzeyen görüntüleri bulmak için oldukça iyidir. Daha büyük bir görüntü kümesinde (>1000), bu büyük miktarda yanlış pozitif üretecektir, bu nedenle bu durumda daha büyük bir karma boyutu kullanmanızı öneririm.
     
-    16'lık varsayılan SURÇ boyutu kısa sürede az miktarda hatalı eşleştirme ile 
-    birbirine biraz benzer resimler bulmak için en uygun seçenektir. 
+    16 varsayılan hash boyutudur ve az da olsa benzer resimler bulmakla az miktarda hash çakışması olması arasında oldukça iyi bir uzlaşmadır.
     
-    32 ve 64'lük SURÇ boyutları yalnızca bir birine çok benzeyen resimleri eşleştirir 
-    ve neredeyse (alfa kanallı kimi resimler dışında) hatalı eşleştirme yapmaz.
+    32 ve 64 hash'ler yalnızca çok benzer görüntüleri bulur, ancak neredeyse hiç piksel farkı olmamalıdır (belki alfa kanallı bazı görüntüler hariç).
 image_resize_filter_tooltip =
-    Benzer resim dosyaları farklı biçimlerde, farklı boyutlarda, farklı sıkıştırma oranlarında olabilir. 
-    Sabit Uzunluklu Resim Çıktısı (SURÇ) üretimi öncesinde bir algoritma aracılığı ile yeniden boyutlandırılmalıdır.
+    Görüntünün hash'ini hesaplamak için kütüphanenin önce görüntüyü yeniden boyutlandırması gerekir.
     
-    Seçilen algoritmaya bağlı olarak, elde edilen son görüntü biraz farklı görünecektir. 
+    Seçilen algoritmaya bağlı olarak, hash hesaplamak için kullanılan sonuç görüntüsü biraz farklı görünecektir.
     
-    Kullanılacak en hızlı aynı zamanda en kötü sonuçları veren algoritma Nearest'tir. Yine de varsayılan 
-    olarak etkindir. Çünkü kalite kaybı, 16x16 boyutluk SURÇ üretiminde gerçekten fark edilmez.
+    Kullanılacak en hızlı ve aynı zamanda en kötü sonuçları veren algoritma Nearest'tir. Varsayılan olarak etkindir, çünkü 16x16 hash boyutunda daha düşük kalitede gerçekten görünmez.
     
-    8x8 boyutluk SURÇ üretimi ile daha iyi eşleştirilmiş resim gruplarına sahip olmak için 
-    Nearest'ten farklı bir algoritma kullanmanız önerilir.
+    8x8 karma boyutunda, daha iyi görüntü grupları elde etmek için Nearest'ten farklı bir algoritma kullanılması önerilir.
 image_hash_alg_tooltip =
     Kullanıcılar, SUÇ oluşturmanın birçok algoritmasından birini seçebilir. 
     Her birinin hem güçlü hem de zayıf noktaları vardır ve farklı görüntüler için 
@@ -151,7 +147,7 @@ main_check_box_broken_files_pdf = Pdf
 main_check_box_broken_files_archive = Arşiv
 main_check_box_broken_files_image = Resim
 check_button_general_same_size = Aynı boyutu yok say
-check_button_general_same_size_tooltip = Aynı boyuta sahip dosyalar -genellikle 1'e 1 eştir- sonuçlarda gösterilmez.
+check_button_general_same_size_tooltip = Sonuçlarda aynı boyutta olan dosyaları yoksay - genellikle bunlar bire bir kopyalardır
 main_label_size_bytes_tooltip = Taramada kullanılacak dosyaların boyutu
 # Upper window
 upper_tree_view_included_folder_column_title = Aranacak Klasörler
@@ -192,11 +188,16 @@ upper_allowed_extensions_tooltip =
     
     Kullanım örneği: ".exe, IMAGE, VIDEO, .rar, .7z" -- Bu girdi, resimlerin (ör. jpg, png ...), 
     videoların (ör. avi, mp4 ...), exe, rar ve 7z dosyalarının taranacağı anlamına gelir.
+upper_excluded_extensions_tooltip =
+    Taramada göz ardı edilecek devre dışı bırakılmış dosyaların listesi.
+    
+    İzin verilen ve devre dışı bırakılan uzantılar kullanıldığında, bu daha yüksek önceliğe sahiptir, bu nedenle dosya kontrol edilmeyecektir.
 upper_excluded_items_tooltip =
     Hariç tutulan öğeler * joker karakterini içermeli ve virgülle ayrılmalıdır.
     Bu işlev, Hariç Tutulan Dizinlerden daha yavaştır, bu yüzden dikkatli kullanın.
 upper_excluded_items = Hariç Tutulan Öğeler:
 upper_allowed_extensions = İzin Verilen Uzantılar:
+upper_excluded_extensions = Devre Dışı Uzantılar:
 # Popovers
 popover_select_all = Tümünü seç
 popover_unselect_all = Tümünün seçimini kaldır
@@ -264,6 +265,7 @@ bottom_symlink_button = Sembolik bağlantı
 bottom_hardlink_button = Sabit bağlantı
 bottom_move_button = Taşı
 bottom_sort_button = Sırala
+bottom_compare_button = Compare
 bottom_search_button_tooltip = Aramayı başlatır.
 bottom_select_button_tooltip = Kayıtları seçer. Yalnızca seçilen dosyalara/klasörlere işlem uygulanabilir.
 bottom_delete_button_tooltip = Seçili dosyaları/klasörleri siler.
@@ -286,6 +288,7 @@ bottom_move_button_tooltip =
     Dizin ağacını korumadan tüm dosyaları dizine taşır.
     Aynı ada sahip iki dosyayı klasöre taşımaya çalışırken, ikincisi başarısız olur ve hata gösterir.
 bottom_sort_button_tooltip = Dosyaları/Dizinleri seçilen metoda göre sırala.
+bottom_compare_button_tooltip = Compare images in the group.
 bottom_show_errors_tooltip = Alt çıktı panelini göster/gizle.
 bottom_show_upper_notebook_tooltip = Üst denetim panelini göster/gizle.
 # Progress Window
@@ -311,6 +314,13 @@ header_about_button_tooltip = Czkawka hakkında bilgi içeren iletişim kutusunu
 
 settings_number_of_threads = Kullanılan iş parçacığı sayısı
 settings_number_of_threads_tooltip = Kullanılan iş parçacığı sayısı, 0 tüm uygun iş parçacıklarının kullanılacağı anlamına gelir.
+settings_use_rust_preview = Ön izlemeleri yüklemek için gtk yerine harici kitaplıkları kullanın
+settings_use_rust_preview_tooltip =
+    Gtk ön izlemelerini kullanmak bazen daha hızlı olabilir ve daha fazla biçimi destekler, ancak bazen bu tam tersi de olabilir.
+    
+    Ön izlemeleri yüklemede sorun yaşıyorsanız bu ayarı değiştirmeyi deneyebilirsiniz.
+    
+    Linux dışı sistemlerde bu seçeneğin kullanılması önerilir çünkü gtk-pixbuf her zaman mevcut değildir, dolayısıyla bu seçeneğin devre dışı bırakılması bazı görüntülerin ön izlemelerini yüklemeyecektir.
 settings_label_restart = Ayarları uygulamak için uygulamayı yeniden başlatmanız gerekir!
 settings_ignore_other_filesystems = Öteki dosya sistemlerini yoksay (sadece Linux)
 settings_ignore_other_filesystems_tooltip =
@@ -367,7 +377,7 @@ settings_multiple_image_preview_checkbutton = Resim önizlemesini göster
 settings_multiple_clear_cache_button_tooltip =
     Güncel olmayan girişlerin önbelleğini el ile temizleyin.
     Bu, yalnızca otomatik temizleme devre dışı bırakılmışsa kullanılmalıdır.
-settings_multiple_clear_cache_button = Güncel olmayan girdileri resim önbelleğinden kaldır
+settings_multiple_clear_cache_button = Güncel olmayan girdileri önbellekten kaldır.
 
 ## Duplicates
 
@@ -439,22 +449,36 @@ compute_found_invalid_symlinks = { $number_files } adet geçersiz sembolik bağl
 compute_found_broken_files = { $number_files } adet bozuk dosya bulundu.
 compute_found_bad_extensions = { $number_files } adet geçersiz uzantıya sahip dosya bulundu.
 # Progress window
-progress_scanning_general_file = { $file_number } dosya tarandı.
-progress_scanning_extension_of_files = { $file_checked }/{ $all_files } dosyanın uzantısı kontrol edildi.
-progress_scanning_broken_files = { $file_checked }/{ $all_files } dosya kontrol edildi.
-progress_scanning_video = { $file_checked }/{ $all_files } videonun SUÇ kaydı oluşturuldu. ;-)
-progress_scanning_image = { $file_checked }/{ $all_files } resmin SURÇ kaydı oluşturuldu. ;-)
-progress_comparing_image_hashes = { $file_checked }/{ $all_files } resim SURÇ kaydı karşılaştırıldı.
-progress_scanning_music_tags_end = { $file_checked }/{ $all_files } müzik dosyasının etiketleri karşılaştırıldı.
-progress_scanning_music_tags = { $file_checked }/{ $all_files } müzik dosyasının etiketleri okundu.
-progress_scanning_music_content_end = Comparing fingerprint of { $file_checked }/{ $all_files } music file
-progress_scanning_music_content = Calculating fingerprint of { $file_checked }/{ $all_files } music file
-progress_scanning_empty_folders = { $folder_number } klasör tarandı.
-progress_scanning_size = { $file_number } dosyanın boyutu tarandı.
-progress_scanning_size_name = Scanning name and size of { $file_number } file
-progress_scanning_name = { $file_number } dosyanın adı tarandı.
-progress_analyzed_partial_hash = { $file_checked }/{ $all_files } dosyanın kısmi-SUÇ kaydı analiz edildi. ;-)
-progress_analyzed_full_hash = { $file_checked }/{ $all_files } dosyanın tam SUÇ kaydı analiz edildi. ;-)
+progress_scanning_general_file =
+    { $file_number ->
+        [one] { $file_number } dosya tarandı
+       *[other] { $file_number } dosya tarandı
+    }
+progress_scanning_extension_of_files = Checked extension of { $file_checked }/{ $all_files } file
+progress_scanning_broken_files = Checked { $file_checked }/{ $all_files } file ({ $data_checked }/{ $all_data })
+progress_scanning_video = Hashed of { $file_checked }/{ $all_files } video
+progress_scanning_image = Hashed of { $file_checked }/{ $all_files } image ({ $data_checked }/{ $all_data })
+progress_comparing_image_hashes = Compared { $file_checked }/{ $all_files } image hash
+progress_scanning_music_tags_end = Compared tags of { $file_checked }/{ $all_files } music file
+progress_scanning_music_tags = Read tags of { $file_checked }/{ $all_files } music file
+progress_scanning_music_content_end = Compared fingerprint of { $file_checked }/{ $all_files } music file
+progress_scanning_music_content = Calculated fingerprint of { $file_checked }/{ $all_files } music file ({ $data_checked }/{ $all_data })
+progress_scanning_empty_folders =
+    { $folder_number ->
+        [one] { $folder_number } klasör tarandı
+       *[other] { $folder_number } klasör tarandı
+    }
+progress_scanning_size = Scanned size of { $file_number } file
+progress_scanning_size_name = Scanned name and size of { $file_number } file
+progress_scanning_name = Scanned name of { $file_number } file
+progress_analyzed_partial_hash = Analyzed partial hash of { $file_checked }/{ $all_files } files ({ $data_checked }/{ $all_data })
+progress_analyzed_full_hash = Analyzed full hash of { $file_checked }/{ $all_files } files ({ $data_checked }/{ $all_data })
+progress_prehash_cache_loading = Prehash önbelleği yükleniyor
+progress_prehash_cache_saving = Prehash önbelleği kaydediliyor
+progress_hash_cache_loading = Hash önbelleği yükleniyor
+progress_hash_cache_saving = Hash önbelleği kaydediliyor
+progress_cache_loading = Önbellek yükleniyor
+progress_cache_saving = Önbellek kaydediliyor
 progress_current_stage = Geçerli Aşama: { " " }
 progress_all_stages = Tüm Aşamalar: { " " }
 # Saving loading 
@@ -508,7 +532,7 @@ move_file_failed = { $name } dosyası taşınamadı, nedeni: { $reason }
 move_files_title_dialog = Eş dosyaları taşımak istediğiniz klasörü seçin
 move_files_choose_more_than_1_path = Eş dosyaları taşıyabilmek için yalnızca bir yol seçilebilir, { $path_number } seçildi.
 move_stats = { $num_files }/{ $all_files } öğe düzgün şekilde taşındı.
-save_results_to_file = Sonuçlar { $name } dosyasına kaydedildi.
+save_results_to_file = Sonuçları hem txt hem de json formatında { $name } klasörüne kaydeder.
 search_not_choosing_any_music = HATA: Müzik araması için en az bir onay kutusu seçmelisiniz.
 search_not_choosing_any_broken_files = HATA: Bozuk dosya araması için en az bir onay kutusu seçmelisiniz.
 include_folders_dialog_title = Aranacak Klasörler
@@ -521,7 +545,7 @@ cache_clear_similar_videos_title = Benzer videolar önbelleğini temizle
 cache_clear_message_label_1 = Güncel olmayan girişleri önbellekten temizlemek istiyor musunuz?
 cache_clear_message_label_2 = Bu işlem, geçersiz dosyalara işaret eden tüm önbellek girişlerini kaldıracak.
 cache_clear_message_label_3 = Bu, önbelleğe yükleme/kaydetme işlemini biraz hızlandırabilir.
-cache_clear_message_label_4 = UYARI: İşlem, takılı olmayan harici sürücülerden önbelleğe alınmış tüm verileri kaldıracaktır. Yani her SUÇ kaydının yeniden oluşturulması gerekecek. ;-)
+cache_clear_message_label_4 = UYARI: İşlem, takılı olmayan harici sürücülerden önbelleğe alınmış tüm verileri kaldıracaktır. Yani her hash kaydının yeniden oluşturulması gerekecek.
 # Show preview
 preview_image_resize_failure = { $name } adlı resim yeniden boyutlandırılamadı.
 preview_image_opening_failure = { $name } adlı resim dosyası açılamadı, nedeni: { $reason }

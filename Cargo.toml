@@ -3,12 +3,14 @@ members = [
     "czkawka_core",
     "czkawka_cli",
     "czkawka_gui",
+    "krokiet"
 ]
 exclude = [
+    "misc/test_read_perf",
+    "misc/test_image_perf",
     "ci_tester",
-    "czkawka_slint_gui"
 ]
-resolver = "2"
+resolver = "3"
 
 [profile.release]
 # panic = "unwind" in opposite to "abort", allows to catch panic!()
@@ -17,9 +19,30 @@ resolver = "2"
 # until you are ready to occasional crashes
 panic = "unwind"
 
-# LTO setting is disabled by default, because release mode is usually needed to develop app and compilation with LTO would take a lot of time
-#lto = "fat"
+# Should find more panics, that now are hidden from user - in long term it should decrease bugs in app
+# There is one big disadvantage - in case of overflow/underflow entire app crashes and not everywhere I catch this panic so app aborts
+# So feel free to disable it, if you want
+overflow-checks = true
 
-# Optimize all dependencies except application/workspaces, even in debug builds
-[profile.dev.package."*"]
+# LTO setting is disabled by default, because release mode is usually needed to develop app and compilation with LTO would take a lot of time
+# But it is used to optimize release builds(and probably also in CI, where time is not so important as in local development)
+#lto = "thin"
+
+# Optimize all dependencies except application/workspaces, even in debug builds to get reasonable performance e.g. when opening images
+[profile.dev.package."*"] # OPT PACKAGES
+opt-level = 3 # OPT PACKAGES
+
+[profile.test]
+debug-assertions = true # Forces to crash when there is duplicated item in cli
+overflow-checks = true
 opt-level = 3
+
+# Unsafe profile, just to check, how fast and small app could be 
+[profile.fastest]
+inherits = "release"
+panic = "abort"
+lto = "thin"
+strip = "symbols"
+codegen-units = 1
+opt-level = 3
+debug = false

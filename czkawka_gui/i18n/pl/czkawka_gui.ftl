@@ -18,6 +18,11 @@ music_checking_by_tags = Tagi
 music_checking_by_content = Zawartość
 same_music_seconds_label = Minimalny fragment drugi czas trwania
 same_music_similarity_label = Maksymalna różnica
+music_compare_only_in_title_group = Porównaj tylko w tytule
+music_compare_only_in_title_group_tooltip =
+    Gdy włączone, pliki są pogrupowane według tytułu, a następnie porównywane do siebie.
+    
+    z 10000 plików, zamiast tego prawie 100 milionów porównań będzie około 20000 porównań.
 same_music_tooltip =
     Wyszukiwanie podobnych plików muzycznych przez jego zawartość można skonfigurować przez ustawienie:
     
@@ -60,21 +65,21 @@ duplicate_check_method_tooltip =
     
     Hash - Znajduje pliki, które mają tę samą zawartość. Ten tryb haszuje plik, a następnie porównuje utworzony skrót(hash) aby znaleźć duplikaty. Ten tryb jest najbezpieczniejszym sposobem na znalezienie duplikatów. Aplikacja używa pamięci podręcznej, więc drugie i kolejne skanowanie tych samych danych powinno być dużo szybsze niż za pierwszym razem.
 image_hash_size_tooltip =
-    Każdy sprawdzony obraz generuje hash, który można porównać z innymi a niewielka różnica między nimi oznacza, że te obrazy są podobne.
+    Każdy zaznaczony obraz tworzy specjalny skrót, który można porównać ze sobą, a niewielka różnica między nimi oznacza, że obrazy te są podobne.
     
-    Hash wielkości 8 jest dość dobry do wyszukiwania obrazów, które są tylko niewiele podobne do oryginału. Z większą ilością obrazów(>1000) będzie generować dużą ilość niepoprawnych wyników, więc w takim przypadku zalecam użycie większego hashu.
+    8 hashh rozmiar jest dość dobry do wyszukiwania obrazów, które są tylko trochę podobne do oryginału. Dzięki większemu zestawowi zdjęć (>1000), spowoduje to uzyskanie dużej ilości fałszywych dodatnich, więc zalecam użycie większego rozmiaru skrótu w tym przypadku.
     
-    16 to domyślny rozmiar hashu, który jest całkiem dobrym kompromisem między znalezieniem nawet nieco podobnych obrazów a niewielkim poziomem kolizji pomiędzy nimi.
+    16 to domyślny rozmiar hasha, który jest dość dobrym kompromisem między znalezieniem nawet nieco podobnych obrazów a zaledwie niewielką ilością kolizji haszujących.
     
-    32 i 64 znajdują tylko bardzo podobne zdjęcia, ale prawie nie powinny mieć kolizji (może z wyjątkiem niektórych obrazów z kanałem alfa(przezroczystością)).
+    32 i 64 hashy znajdują tylko bardzo podobne obrazy, ale nie powinny mieć prawie żadnych fałszywych pozytywnych (może z wyjątkiem niektórych obrazów z kanałem alfa).
 image_resize_filter_tooltip =
-    Aby obliczyć hash obrazu, biblioteka musi najpierw zmienić(zwykle zmniejszyć) jego rozmiar.
+    Aby obliczyć skrót obrazu, biblioteka musi najpierw zmienić jego rozmiar.
     
-    W zależności od wybranego algorytmu, zmiejszony obraz użyty do obliczenia skrótu może wyglądać nieco inaczej.
+    Dołącz do wybranego algorytmu, wynikowy obraz użyty do obliczenia skrótu będzie wyglądał nieco inaczej.
     
-    Najszybszy algorytm do użycia, ale również taki, który daje najgorsze wyniki, to Nearest i domyślnie jest włączony, ponieważ przy rozmiarze skrótu 16x16 jego niższa jakość, nie jest zbytnio widoczna.
+    Najszybszy algorytm do użycia, ale także ten, który daje najgorsze wyniki, jest najbardziej potrzebny. Domyślnie jest włączona, ponieważ przy rozmiarze skrótu 16x16 jego jakość nie jest naprawdę widoczna.
     
-    Przy rozmiarze hashu 8 zaleca się użycie innego algorytmu niż Nearest, aby mieć obraz mógł zostać lepiej zakwalifikowany do danej grupy.
+    Przy rozmiarze skrótu 8x8 zaleca się użycie innego algorytmu niż najbliższy, aby mieć lepsze grupy obrazów.
 image_hash_alg_tooltip =
     Użytkownicy mogą wybrać jeden z wielu algorytmów obliczania hashu.
     
@@ -129,7 +134,7 @@ main_check_box_broken_files_pdf = Pdf
 main_check_box_broken_files_archive = Archiwa
 main_check_box_broken_files_image = Obraz
 check_button_general_same_size = Ignoruj identyczny rozmiar
-check_button_general_same_size_tooltip = Wyrzuca z wyników skanowania pliki, które posiadają identyczny rozmiar, po to by w wynikach zostały tylko niemal identyczne rekordy.
+check_button_general_same_size_tooltip = Ignoruj pliki o identycznym rozmiarze w wynikach - zazwyczaj są to duplikaty 1:1
 main_label_size_bytes_tooltip = Rozmiar plików które będą zawarte przy przeszukiwaniu
 # Upper window
 upper_tree_view_included_folder_column_title = Foldery do Przeszukania
@@ -167,11 +172,16 @@ upper_allowed_extensions_tooltip =
     Istnieją makra, które umożliwiają dołączenie za jednym razem określonych typów plików IMAGE, VIDEO, MUSIC, TEXT.
     
     Przykład użycia ".exe, IMAGE, VIDEO, .rar, 7z" - oznacza że obrazy (np. jpg, png), filmy (np. avi, mp4), exe, rar i 7z zostaną sprawdzone.
+upper_excluded_extensions_tooltip =
+    Lista wyłączonych plików, które zostaną zignorowane w skanowaniu.
+    
+    Gdy używasz zarówno dozwolonych, jak i wyłączonych rozszerzeń, ten ma wyższy priorytet, więc plik nie zostanie sprawdzony.
 upper_excluded_items_tooltip =
     Wykluczone elementy muszą zawierać znak * (który odpowiada za dowolny ciąg znaków) i powinny być oddzielone przecinkami.
     Jest to wolniejszy sposób od zwykłego wykluczania katalogów, więc należy używać go ostrożnie.
 upper_excluded_items = Ignorowane Obiekty:
 upper_allowed_extensions = Dozwolone Rozszerzenia:
+upper_excluded_extensions = Wyłączone rozszerzenia:
 # Popovers
 popover_select_all = Zaznacz wszystko
 popover_unselect_all = Odznacz wszystko
@@ -236,6 +246,7 @@ bottom_symlink_button = Symlink
 bottom_hardlink_button = Hardlink
 bottom_move_button = Przenieś
 bottom_sort_button = Sortuj
+bottom_compare_button = Porównaj
 bottom_search_button_tooltip = Rozpocznij wyszukiwanie
 bottom_select_button_tooltip = Wybierz rekordy. Tylko wybrane pliki/foldery mogą być później przetwarzane.
 bottom_delete_button_tooltip = Usuń zaznaczone elementy.
@@ -258,6 +269,7 @@ bottom_move_button_tooltip =
     Kopiuje wszystkie pliki do katalogu bez zachowania struktury plików.
     Podczas próby przeniesienia dwóch plików o identycznej nazwie do folderu, drugi plik nie zostanie przeniesiony i pojawi się błąd.
 bottom_sort_button_tooltip = Sortuje pliki/foldery zgodnie z wybraną metodą.
+bottom_compare_button_tooltip = Porównaj obrazy w grupie.
 bottom_show_errors_tooltip = Pokaż/Ukryj dolny panel tekstowy.
 bottom_show_upper_notebook_tooltip = Pokazuje/ukrywa górny panel.
 # Progress Window
@@ -283,6 +295,13 @@ header_about_button_tooltip = Otwórz okno z informacjami o programie.
 
 settings_number_of_threads = Liczba używanych wątków
 settings_number_of_threads_tooltip = Liczba używanych wątków, 0 oznacza, że zostaną użyte wszystkie dostępne wątki.
+settings_use_rust_preview = Użyj zewnętrznych bibliotek zamiast gtk, aby załadować podgląd
+settings_use_rust_preview_tooltip =
+    Korzystanie z podglądu gtk będzie czasem szybsze i obsługuje więcej formatów, ale czasami może to być dokładnie odwrotne.
+    
+    Jeśli masz problemy z ładowaniem podglądów, możesz spróbować zmienić to ustawienie.
+    
+    W systemach innych niż linux zaleca się użycie tej opcji, ponieważ gtk-pixbuf nie zawsze jest tam dostępny, więc wyłączenie tej opcji nie załaduje podglądu niektórych obrazów.
 settings_label_restart = Musisz ponownie uruchomić aplikację, aby aplikacja zaciągnęła nowe ustawienia!
 settings_ignore_other_filesystems = Ignoruj inne systemy plików (tylko Linux)
 settings_ignore_other_filesystems_tooltip =
@@ -333,7 +352,7 @@ settings_multiple_image_preview_checkbutton = Pokazuj podgląd obrazów
 settings_multiple_clear_cache_button_tooltip =
     Ręcznie wyczyść pamięć podręczną przestarzałych wpisów.
     To powinno być używane tylko wtedy, gdy automatyczne czyszczenie zostało wyłączone.
-settings_multiple_clear_cache_button = Usuń nieaktualne dane z pamięci podręcznej
+settings_multiple_clear_cache_button = Usuń nieaktualne wyniki z pamięci podręcznej.
 
 ## Duplicates
 
@@ -397,22 +416,36 @@ compute_found_invalid_symlinks = Znaleziono { $number_files } niepoprawnych dowi
 compute_found_broken_files = Znaleziono { $number_files } uszkodzonych plików
 compute_found_bad_extensions = Znaleziono { $number_files } plików z nieprawidłowymi rozszerzeniami
 # Progress window
-progress_scanning_general_file = Skanowanie { $file_number } pliku
-progress_scanning_extension_of_files = Sprawdzanie rozszerzenia { $file_checked }/{ $all_files } pliku
-progress_scanning_broken_files = Sprawdzanie { $file_checked }/{ $all_files } plików
-progress_scanning_video = Hashowanie { $file_checked }/{ $all_files } pliku wideo
-progress_scanning_image = Hashowanie { $file_checked }/{ $all_files } obrazu
-progress_comparing_image_hashes = Porównywanie { $file_checked }/{ $all_files } hashu obrazu
-progress_scanning_music_tags_end = Porównywanie tagów { $file_checked }/{ $all_files } pliku audio
-progress_scanning_music_tags = Sczytywanie tagów { $file_checked }/{ $all_files } pliku audio
-progress_scanning_music_content_end = Porównywanie odcisku palca { $file_checked }/{ $all_files } pliku muzycznego
-progress_scanning_music_content = Obliczanie odcisku palca { $file_checked }/{ $all_files } pliku muzycznego
-progress_scanning_empty_folders = Przeszukiwanie { $folder_number } folderu
-progress_scanning_size = Sprawdzanie rozmiaru { $file_number } pliku
-progress_scanning_size_name = Skanowanie nazwy i rozmiaru pliku { $file_number }
-progress_scanning_name = Sprawdzanie nazwy { $file_number } pliku
-progress_analyzed_partial_hash = Obliczanie częściowego hashu { $file_checked }/{ $all_files } pliku
-progress_analyzed_full_hash = Obliczanie pełnego hashu { $file_checked }/{ $all_files } pliku
+progress_scanning_general_file =
+    { $file_number ->
+        [one] Przeskanowano { $file_number } plik
+       *[other] Przeskanowano { $file_number } plików
+    }
+progress_scanning_extension_of_files = Sprawdzono rozszerzenie { $file_checked }/{ $all_files } plików
+progress_scanning_broken_files = Sprawdzono plik { $file_checked }/{ $all_files } ({ $data_checked }/{ $all_data })
+progress_scanning_video = Obliczono hashe dla { $file_checked }/{ $all_files } plików video
+progress_scanning_image = Obliczono hashe dla { $file_checked }/{ $all_files } obrazów ({ $data_checked }/{ $all_data })
+progress_comparing_image_hashes = Porównano { $file_checked }/{ $all_files } hashy obrazów
+progress_scanning_music_tags_end = Porównano { $file_checked }/{ $all_files } tagów plików audio
+progress_scanning_music_tags = Odczytano tagi { $file_checked }/{ $all_files } plików audio
+progress_scanning_music_content_end = Porównano hashe { $file_checked }/{ $all_files } plików audio
+progress_scanning_music_content = Obliczono hash { $file_checked }/{ $all_files } plików audio ({ $data_checked }/{ $all_data })
+progress_scanning_empty_folders =
+    { $folder_number ->
+        [one] Przeskanowano { $folder_number } folder
+       *[other] Przeskanowano { $folder_number } folderów
+    }
+progress_scanning_size = Przeskano rozmiar { $file_number } plików
+progress_scanning_size_name = Sprawdzono rozmiar i nazwę { $file_number } plików
+progress_scanning_name = Sprawdzono nazwę { $file_number } plików
+progress_analyzed_partial_hash = Obliczono częściowy hash { $file_checked }/{ $all_files } plików ({ $data_checked }/{ $all_data })
+progress_analyzed_full_hash = Obliczono pełny hash { $file_checked }/{ $all_files } plików ({ $data_checked }/{ $all_data })
+progress_prehash_cache_loading = Ładowanie pamięci podręcznej częściowego hashu
+progress_prehash_cache_saving = Zapisywanie pamięci podręcznej częściowego hashu
+progress_hash_cache_loading = Ładowanie pamięci podręcznej hash
+progress_hash_cache_saving = Zapisywanie pamięci podręcznej skrótu
+progress_cache_loading = Ładowanie pamięci podręcznej
+progress_cache_saving = Zapisywanie pamięci podręcznej
 progress_current_stage = Aktualny Etap:{ "  " }
 progress_all_stages = Wszystkie Etapy:{ "  " }
 # Saving loading 
@@ -470,7 +503,7 @@ move_file_failed = Nie można przenieść pliku { $name }, powód { $reason }
 move_files_title_dialog = Wybierz folder, do którego zostaną przeniesione pliki
 move_files_choose_more_than_1_path = Tylko jedna ścieżka może być wybrana, aby móc skopiować zduplikowane pliki, wybrano { $path_number }.
 move_stats = Poprawnie przeniesiono { $num_files }/{ $all_files } elementów
-save_results_to_file = Zapisano wyniki do pliku { $name }
+save_results_to_file = Zapisano wyniki zarówno do plików txt, jak i json w folderze { $name }.
 search_not_choosing_any_music = BŁĄD: Musisz zaznaczyć przynajmniej jeden pole, według którego będą wyszukiwane podobne pliki muzyczne.
 search_not_choosing_any_broken_files = BŁĄD: Musisz wybrać co najmniej jedno pole wyboru z rodzajem uszkodzonych plików.
 include_folders_dialog_title = Foldery do przeszukiwania

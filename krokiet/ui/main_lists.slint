@@ -1,0 +1,271 @@
+import { Button, VerticalBox , HorizontalBox, TabWidget, ListView, StandardListView, StandardTableView, CheckBox} from "std-widgets.slint";
+import {SelectableTableView} from "selectable_tree_view.slint";
+import {LeftSidePanel} from "left_side_panel.slint";
+import {CurrentTab, TypeOfOpenedItem} from "common.slint";
+import {MainListModel} from "common.slint";
+import {SettingsList} from "settings_list.slint";
+import {GuiState} from "gui_state.slint";
+import {About} from "about.slint";
+import {Settings} from "settings.slint";
+
+export component MainList {
+    in-out property <[MainListModel]> duplicate_files_model: [];
+    in-out property <[MainListModel]> empty_folder_model: [
+        {checked: false, selected_row: false, header_row: false, filled_header_row: false, val_str: ["kropkarz", "/Xd1", "24.10.2023"], val_int: []} ,
+        {checked: false, selected_row: false, header_row: false, filled_header_row: false, val_str: ["witasphere", "/Xd1/Imagerren2", "25.11.1991"], val_int: []},
+        {checked: true, selected_row: false, header_row: false, filled_header_row: false, val_str: ["lokkaler", "/Xd1/Vide2", "01.23.1911"], val_int: []}
+    ];
+    in-out property <[MainListModel]> big_files_model: [];
+    in-out property <[MainListModel]> empty_files_model: [
+        {checked: false, selected_row: false, header_row: false, filled_header_row: false, val_str: ["kropkarz", "/Xd1", "24.10.2023"], val_int: []} ,
+        {checked: false, selected_row: false, header_row: false, filled_header_row: false, val_str: ["witasphere", "/Xd1/Imagerren2", "25.11.1991"], val_int: []},
+        {checked: true, selected_row: false, header_row: false, filled_header_row: false, val_str: ["lokkaler", "/Xd1/Vide2", "01.23.1911"], val_int: []}
+    ];
+    in-out property <[MainListModel]> temporary_files_model: [];
+    in-out property <[MainListModel]> similar_images_model: [
+        {checked: false, selected_row: false, header_row: true, filled_header_row: false, val_str: ["Original", "500KB", "100x100", "kropkarz", "/Xd1", "24.10.2023"], val_int: []},
+        {checked: false, selected_row: false, header_row: false, filled_header_row: false, val_str: ["Similar", "500KB", "100x100", "witasphere", "/Xd1/Imagerren2", "25.11.1991"], val_int: []},
+        {checked: true, selected_row: false, header_row: false, filled_header_row: false, val_str: ["Similar", "500KB", "100x100", "lokkaler", "/Xd1/Vide2", "01.23.1911"], val_int: []}
+    ];
+    in-out property <[MainListModel]> similar_videos_model: [];
+    in-out property <[MainListModel]> similar_music_model: [];
+    in-out property <[MainListModel]> invalid_symlinks_model: [];
+    in-out property <[MainListModel]> broken_files_model: [];
+    in-out property <[MainListModel]> bad_extensions_model: [];
+
+    callback changed_current_tab();
+
+    duplicates := SelectableTableView {
+        visible: GuiState.active_tab == CurrentTab.DuplicateFiles;
+        min-width: 200px;
+        height: parent.height;
+        columns <=> Settings.duplicates_column_name;
+        column_sizes <=> Settings.duplicates_column_size;
+        values <=> duplicate_files_model;
+        parentPathIdx: 3;
+        fileNameIdx: 2;
+    }
+
+    empty_folders := SelectableTableView {
+        visible: GuiState.active_tab == CurrentTab.EmptyFolders;
+        min-width: 200px;
+        height: parent.height;
+        columns <=> Settings.empty_folders_column_name;
+        column_sizes <=> Settings.empty_folders_column_size;
+        values <=> empty_folder_model;
+        parentPathIdx: 2;
+        fileNameIdx: 1;
+    }
+
+    big_files := SelectableTableView {
+        visible: GuiState.active_tab == CurrentTab.BigFiles;
+        min-width: 200px;
+        height: parent.height;
+        columns <=> Settings.big_files_column_name;
+        column_sizes <=> Settings.big_files_column_size;
+        values <=> big_files_model;
+        parentPathIdx: 3;
+        fileNameIdx: 2;
+    }
+
+    empty_files := SelectableTableView {
+        visible: GuiState.active_tab == CurrentTab.EmptyFiles;
+        min-width: 200px;
+        height: parent.height;
+        columns <=> Settings.empty_files_column_name;
+        column_sizes <=> Settings.empty_files_column_size;
+        values <=> empty_files_model;
+        parentPathIdx: 2;
+        fileNameIdx: 1;
+    }
+
+    temporary_files := SelectableTableView {
+        visible: GuiState.active_tab == CurrentTab.TemporaryFiles;
+        min-width: 200px;
+        height: parent.height;
+        columns <=> Settings.temporary_files_column_name;
+        column_sizes <=> Settings.temporary_files_column_size;
+        values <=> temporary_files_model;
+        parentPathIdx: 2;
+        fileNameIdx: 1;
+    }
+
+    similar_images := SelectableTableView {
+        visible: GuiState.active_tab == CurrentTab.SimilarImages;
+        min-width: 200px;
+        height: parent.height;
+        columns <=> Settings.similar_images_column_name;
+        column_sizes <=> Settings.similar_images_column_size;
+        values <=> similar_images_model;
+        parentPathIdx: 5;
+        fileNameIdx: 4;
+    }
+
+    similar_videos := SelectableTableView {
+        visible: GuiState.active_tab == CurrentTab.SimilarVideos;
+        min-width: 200px;
+        height: parent.height;
+        columns <=> Settings.similar_videos_column_name;
+        column_sizes <=> Settings.similar_videos_column_size;
+        values <=> similar_videos_model;
+        parentPathIdx: 3;
+        fileNameIdx: 2;
+    }
+
+    similar_music := SelectableTableView {
+        visible: GuiState.active_tab == CurrentTab.SimilarMusic;
+        min-width: 200px;
+        height: parent.height;
+        columns <=> Settings.similar_music_column_name;
+        column_sizes <=> Settings.similar_music_column_size;
+        values <=> similar_music_model;
+        parentPathIdx: 9;
+        fileNameIdx: 2;
+    }
+
+    invalid_symlink := SelectableTableView {
+        visible: GuiState.active_tab == CurrentTab.InvalidSymlinks;
+        min-width: 200px;
+        height: parent.height;
+        columns <=> Settings.invalid_symlink_column_name;
+        column_sizes <=> Settings.invalid_symlink_column_size;
+        values <=> invalid_symlinks_model;
+        parentPathIdx: 2;
+        fileNameIdx: 1;
+    }
+
+    broken_files := SelectableTableView {
+        visible: GuiState.active_tab == CurrentTab.BrokenFiles;
+        min-width: 200px;
+        height: parent.height;
+        columns <=> Settings.broken_files_column_name;
+        column_sizes <=> Settings.broken_files_column_size;
+        values <=> broken_files_model;
+        parentPathIdx: 2;
+        fileNameIdx: 1;
+    }
+
+    bad_extensions := SelectableTableView {
+        visible: GuiState.active_tab == CurrentTab.BadExtensions;
+        min-width: 200px;
+        height: parent.height;
+        columns <=> Settings.bad_extensions_column_name;
+        column_sizes <=> Settings.bad_extensions_column_size;
+        values <=> bad_extensions_model;
+        parentPathIdx: 2;
+        fileNameIdx: 1;
+    }
+
+    settings_list := SettingsList {
+        visible: GuiState.active_tab == CurrentTab.Settings;
+    }
+
+    about_app := About {
+        visible: GuiState.active_tab == CurrentTab.About;
+    }
+
+    focus_item := FocusScope {
+        // TODO consider to remove that - looks that hack not works and is unnecessary
+        // width: 0px; // Hack to not steal first click from other components - https://github.com/slint-ui/slint/issues/3503
+        // Hack not works https://github.com/slint-ui/slint/issues/3503#issuecomment-1817809834 because disables key-released event
+
+        key-released(event) => {
+            if (!self.visible || !self.has-focus) {
+                return accept;
+            }
+            if (GuiState.active_tab == CurrentTab.EmptyFiles) {
+                empty_files.released_key(event);
+            } else if (GuiState.active_tab == CurrentTab.EmptyFolders) {
+                empty_folders.released_key(event);
+            } else if (GuiState.active_tab == CurrentTab.SimilarImages) {
+                similar_images.released_key(event);
+            } else if (GuiState.active_tab == CurrentTab.BadExtensions) {
+                bad_extensions.released_key(event);
+            } else if (GuiState.active_tab == CurrentTab.BigFiles) {
+                big_files.released_key(event);
+            } else if (GuiState.active_tab == CurrentTab.DuplicateFiles) {
+                duplicates.released_key(event);
+            } else if (GuiState.active_tab == CurrentTab.TemporaryFiles) {
+                temporary_files.released_key(event);
+            } else if (GuiState.active_tab == CurrentTab.SimilarVideos) {
+                similar_videos.released_key(event);
+            } else if (GuiState.active_tab == CurrentTab.SimilarMusic) {
+                similar_music.released_key(event);
+            } else if (GuiState.active_tab == CurrentTab.InvalidSymlinks) {
+                invalid_symlink.released_key(event);
+            } else if (GuiState.active_tab == CurrentTab.BrokenFiles) {
+                broken_files.released_key(event);
+            } else {
+                // debug("Non handled key in main_lists.slint", event, GuiState.active_tab);
+            }
+            accept
+        }
+
+        key-pressed(event) => {
+            if (!self.visible || !self.has-focus) {
+                return accept;
+            }
+            if (GuiState.active_tab == CurrentTab.EmptyFiles) {
+                empty_files.pressed_key(event);
+            } else if (GuiState.active_tab == CurrentTab.EmptyFolders) {
+                empty_folders.pressed_key(event);
+            } else if (GuiState.active_tab == CurrentTab.SimilarImages) {
+                similar_images.pressed_key(event);
+            } else if (GuiState.active_tab == CurrentTab.BadExtensions) {
+                bad_extensions.pressed_key(event);
+            } else if (GuiState.active_tab == CurrentTab.BigFiles) {
+                big_files.pressed_key(event);
+            } else if (GuiState.active_tab == CurrentTab.DuplicateFiles) {
+                duplicates.pressed_key(event);
+            } else if (GuiState.active_tab == CurrentTab.TemporaryFiles) {
+                temporary_files.pressed_key(event);
+            } else if (GuiState.active_tab == CurrentTab.SimilarVideos) {
+                similar_videos.pressed_key(event);
+            } else if (GuiState.active_tab == CurrentTab.SimilarMusic) {
+                similar_music.pressed_key(event);
+            } else if (GuiState.active_tab == CurrentTab.InvalidSymlinks) {
+                invalid_symlink.pressed_key(event);
+            } else if (GuiState.active_tab == CurrentTab.BrokenFiles) {
+                broken_files.pressed_key(event);
+            } else {
+                // debug("Non handled key in main_lists.slint", event, GuiState.active_tab);
+            }
+            accept
+        }
+    }
+
+    public function reset_selection() {
+        if (GuiState.active_tab == CurrentTab.EmptyFiles) {
+            empty_files.reset_selection();
+        } else if (GuiState.active_tab == CurrentTab.EmptyFolders) {
+            empty_folders.reset_selection();
+        } else if (GuiState.active_tab == CurrentTab.SimilarImages) {
+            similar_images.reset_selection();
+        } else if (GuiState.active_tab == CurrentTab.BadExtensions) {
+            bad_extensions.reset_selection();
+        } else if (GuiState.active_tab == CurrentTab.BigFiles) {
+            big_files.reset_selection();
+        } else if (GuiState.active_tab == CurrentTab.DuplicateFiles) {
+            duplicates.reset_selection();
+        } else if (GuiState.active_tab == CurrentTab.TemporaryFiles) {
+            temporary_files.reset_selection();
+        } else if (GuiState.active_tab == CurrentTab.SimilarVideos) {
+            similar_videos.reset_selection();
+        } else if (GuiState.active_tab == CurrentTab.SimilarMusic) {
+            similar_music.reset_selection();
+        } else if (GuiState.active_tab == CurrentTab.InvalidSymlinks) {
+            invalid_symlink.reset_selection();
+        } else if (GuiState.active_tab == CurrentTab.BrokenFiles) {
+            broken_files.reset_selection();
+        } else {
+            // debug("Non handled reset selection in main_lists.slint", GuiState.active_tab);
+        }
+    }
+
+    changed_current_tab() => {
+        // TODO - not sure why this exists, but if needed it needs to be updated to use new functions
+        // empty_folders.deselect_selected_item();
+        // empty_files.deselect_selected_item();
+        // similar_images.deselect_selected_item();
+    }
+}

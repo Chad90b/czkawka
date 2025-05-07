@@ -1,31 +1,31 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::rc::Rc;
+use std::time::Duration;
 
-use chrono::NaiveDateTime;
+use chrono::DateTime;
+use crossbeam_channel::Receiver;
+use czkawka_core::common::{split_path, split_path_compare};
+use czkawka_core::common_dir_traversal::CheckingMethod;
+use czkawka_core::common_tool::CommonData;
+use czkawka_core::common_traits::ResultEntry;
+use czkawka_core::tools::bad_extensions::BadExtensions;
+use czkawka_core::tools::big_file::BigFile;
+use czkawka_core::tools::broken_files::BrokenFiles;
+use czkawka_core::tools::duplicate::DuplicateFinder;
+use czkawka_core::tools::empty_files::EmptyFiles;
+use czkawka_core::tools::empty_folder::EmptyFolder;
+use czkawka_core::tools::invalid_symlinks::InvalidSymlinks;
+use czkawka_core::tools::same_music::{MusicSimilarity, SameMusic};
+use czkawka_core::tools::similar_images;
+use czkawka_core::tools::similar_images::{ImagesEntry, SimilarImages};
+use czkawka_core::tools::similar_videos::SimilarVideos;
+use czkawka_core::tools::temporary::Temporary;
 use fun_time::fun_time;
-use glib::Receiver;
 use gtk4::prelude::*;
 use gtk4::{Entry, ListStore, TextView, TreeView, Widget};
-use humansize::{format_size, BINARY};
-
-use czkawka_core::bad_extensions::BadExtensions;
-use czkawka_core::big_file::BigFile;
-use czkawka_core::broken_files::BrokenFiles;
-use czkawka_core::common::split_path;
-use czkawka_core::common_dir_traversal::{CheckingMethod, FileEntry};
-use czkawka_core::common_tool::CommonData;
-use czkawka_core::duplicate::DuplicateFinder;
-use czkawka_core::empty_files::EmptyFiles;
-use czkawka_core::empty_folder::EmptyFolder;
-use czkawka_core::invalid_symlinks::InvalidSymlinks;
-use czkawka_core::localizer_core::generate_translation_hashmap;
-use czkawka_core::same_music::{MusicSimilarity, SameMusic};
-use czkawka_core::similar_images;
-use czkawka_core::similar_images::SimilarImages;
-use czkawka_core::similar_videos::SimilarVideos;
-use czkawka_core::temporary::Temporary;
+use humansize::{BINARY, format_size};
+use rayon::prelude::*;
 
 use crate::flg;
 use crate::gui_structs::gui_data::GuiData;
@@ -35,7 +35,7 @@ use crate::notebook_enums::*;
 use crate::notebook_info::NOTEBOOKS_INFO;
 use crate::opening_selecting_records::*;
 
-pub fn connect_compute_results(gui_data: &GuiData, glib_stop_receiver: Receiver<Message>) {
+pub fn connect_compute_results(gui_data: &GuiData, result_receiver: Receiver<Message>) {
     let combo_box_image_hash_size = gui_data.main_notebook.combo_box_image_hash_size.clone();
     let buttons_search = gui_data.bottom_buttons.buttons_search.clone();
     let notebook_main = gui_data.main_notebook.notebook_main.clone();
@@ -73,170 +73,173 @@ pub fn connect_compute_results(gui_data: &GuiData, glib_stop_receiver: Receiver<
     let button_app_info = gui_data.header.button_app_info.clone();
 
     let main_context = glib::MainContext::default();
-    let _guard = main_context.acquire().unwrap();
+    let _guard = main_context.acquire().expect("Failed to acquire main context");
 
-    glib_stop_receiver.attach(None, move |msg| {
-        buttons_search.show();
+    glib::spawn_future_local(async move {
+        loop {
+            while let Ok(msg) = result_receiver.try_recv() {
+                buttons_search.show();
 
-        notebook_main.set_sensitive(true);
-        notebook_upper.set_sensitive(true);
-        button_settings.set_sensitive(true);
-        button_app_info.set_sensitive(true);
+                notebook_main.set_sensitive(true);
+                notebook_upper.set_sensitive(true);
+                button_settings.set_sensitive(true);
+                button_app_info.set_sensitive(true);
 
-        window_progress.hide();
+                window_progress.hide();
 
-        taskbar_state.borrow().hide();
+                taskbar_state.borrow().hide();
 
-        let hash_size_index = combo_box_image_hash_size.active().unwrap() as usize;
-        let hash_size = IMAGES_HASH_SIZE_COMBO_BOX[hash_size_index] as u8;
+                let hash_size_index = combo_box_image_hash_size.active().expect("Failed to get active item") as usize;
+                let hash_size = IMAGES_HASH_SIZE_COMBO_BOX[hash_size_index] as u8;
 
-        match msg {
-            Message::Duplicates(df) => {
-                computer_duplicate_finder(
-                    df,
-                    &entry_info,
-                    &tree_view_duplicate_finder,
-                    &text_view_errors,
-                    &shared_duplication_state,
-                    &shared_buttons,
-                    &buttons_array,
-                    &buttons_names,
-                );
+                match msg {
+                    Message::Duplicates(df) => {
+                        compute_duplicate_finder(
+                            df,
+                            &entry_info,
+                            &tree_view_duplicate_finder,
+                            &text_view_errors,
+                            &shared_duplication_state,
+                            &shared_buttons,
+                            &buttons_array,
+                            &buttons_names,
+                        );
+                    }
+                    Message::EmptyFolders(ef) => {
+                        compute_empty_folders(
+                            ef,
+                            &entry_info,
+                            &tree_view_empty_folder_finder,
+                            &text_view_errors,
+                            &shared_empty_folders_state,
+                            &shared_buttons,
+                            &buttons_array,
+                            &buttons_names,
+                        );
+                    }
+                    Message::EmptyFiles(vf) => {
+                        compute_empty_files(
+                            vf,
+                            &entry_info,
+                            &tree_view_empty_files_finder,
+                            &text_view_errors,
+                            &shared_empty_files_state,
+                            &shared_buttons,
+                            &buttons_array,
+                            &buttons_names,
+                        );
+                    }
+                    Message::BigFiles(bf) => {
+                        compute_big_files(
+                            bf,
+                            &entry_info,
+                            &tree_view_big_files_finder,
+                            &text_view_errors,
+                            &shared_big_files_state,
+                            &shared_buttons,
+                            &buttons_array,
+                            &buttons_names,
+                        );
+                    }
+                    Message::Temporary(tf) => {
+                        compute_temporary_files(
+                            tf,
+                            &entry_info,
+                            &tree_view_temporary_files_finder,
+                            &text_view_errors,
+                            &shared_temporary_files_state,
+                            &shared_buttons,
+                            &buttons_array,
+                            &buttons_names,
+                        );
+                    }
+                    Message::SimilarImages(sf) => {
+                        compute_similar_images(
+                            sf,
+                            &entry_info,
+                            &tree_view_similar_images_finder,
+                            &text_view_errors,
+                            &shared_similar_images_state,
+                            &shared_buttons,
+                            &buttons_array,
+                            &buttons_names,
+                            hash_size,
+                        );
+                    }
+                    Message::SimilarVideos(ff) => {
+                        compute_similar_videos(
+                            ff,
+                            &entry_info,
+                            &tree_view_similar_videos_finder,
+                            &text_view_errors,
+                            &shared_similar_videos_state,
+                            &shared_buttons,
+                            &buttons_array,
+                            &buttons_names,
+                        );
+                    }
+                    Message::SameMusic(mf) => {
+                        compute_same_music(
+                            mf,
+                            &entry_info,
+                            &tree_view_same_music_finder,
+                            &text_view_errors,
+                            &shared_same_music_state,
+                            &shared_buttons,
+                            &buttons_array,
+                            &buttons_names,
+                        );
+                    }
+                    Message::InvalidSymlinks(ifs) => {
+                        compute_invalid_symlinks(
+                            ifs,
+                            &entry_info,
+                            &tree_view_invalid_symlinks,
+                            &text_view_errors,
+                            &shared_same_invalid_symlinks,
+                            &shared_buttons,
+                            &buttons_array,
+                            &buttons_names,
+                        );
+                    }
+                    Message::BrokenFiles(br) => {
+                        compute_broken_files(
+                            br,
+                            &entry_info,
+                            &tree_view_broken_files,
+                            &text_view_errors,
+                            &shared_broken_files_state,
+                            &shared_buttons,
+                            &buttons_array,
+                            &buttons_names,
+                        );
+                    }
+                    Message::BadExtensions(be) => {
+                        compute_bad_extensions(
+                            be,
+                            &entry_info,
+                            &tree_view_bad_extensions,
+                            &text_view_errors,
+                            &shared_bad_extensions_state,
+                            &shared_buttons,
+                            &buttons_array,
+                            &buttons_names,
+                        );
+                    }
+                }
             }
-            Message::EmptyFolders(ef) => {
-                computer_empty_folders(
-                    ef,
-                    &entry_info,
-                    &tree_view_empty_folder_finder,
-                    &text_view_errors,
-                    &shared_empty_folders_state,
-                    &shared_buttons,
-                    &buttons_array,
-                    &buttons_names,
-                );
-            }
-            Message::EmptyFiles(vf) => {
-                computer_empty_files(
-                    vf,
-                    &entry_info,
-                    &tree_view_empty_files_finder,
-                    &text_view_errors,
-                    &shared_empty_files_state,
-                    &shared_buttons,
-                    &buttons_array,
-                    &buttons_names,
-                );
-            }
-            Message::BigFiles(bf) => {
-                computer_big_files(
-                    bf,
-                    &entry_info,
-                    &tree_view_big_files_finder,
-                    &text_view_errors,
-                    &shared_big_files_state,
-                    &shared_buttons,
-                    &buttons_array,
-                    &buttons_names,
-                );
-            }
-            Message::Temporary(tf) => {
-                computer_temporary_files(
-                    tf,
-                    &entry_info,
-                    &tree_view_temporary_files_finder,
-                    &text_view_errors,
-                    &shared_temporary_files_state,
-                    &shared_buttons,
-                    &buttons_array,
-                    &buttons_names,
-                );
-            }
-            Message::SimilarImages(sf) => {
-                computer_similar_images(
-                    sf,
-                    &entry_info,
-                    &tree_view_similar_images_finder,
-                    &text_view_errors,
-                    &shared_similar_images_state,
-                    &shared_buttons,
-                    &buttons_array,
-                    &buttons_names,
-                    hash_size,
-                );
-            }
-            Message::SimilarVideos(ff) => {
-                computer_similar_videos(
-                    ff,
-                    &entry_info,
-                    &tree_view_similar_videos_finder,
-                    &text_view_errors,
-                    &shared_similar_videos_state,
-                    &shared_buttons,
-                    &buttons_array,
-                    &buttons_names,
-                );
-            }
-            Message::SameMusic(mf) => {
-                computer_same_music(
-                    mf,
-                    &entry_info,
-                    &tree_view_same_music_finder,
-                    &text_view_errors,
-                    &shared_same_music_state,
-                    &shared_buttons,
-                    &buttons_array,
-                    &buttons_names,
-                );
-            }
-            Message::InvalidSymlinks(ifs) => {
-                computer_invalid_symlinks(
-                    ifs,
-                    &entry_info,
-                    &tree_view_invalid_symlinks,
-                    &text_view_errors,
-                    &shared_same_invalid_symlinks,
-                    &shared_buttons,
-                    &buttons_array,
-                    &buttons_names,
-                );
-            }
-            Message::BrokenFiles(br) => {
-                computer_broken_files(
-                    br,
-                    &entry_info,
-                    &tree_view_broken_files,
-                    &text_view_errors,
-                    &shared_broken_files_state,
-                    &shared_buttons,
-                    &buttons_array,
-                    &buttons_names,
-                );
-            }
-            Message::BadExtensions(be) => {
-                computer_bad_extensions(
-                    be,
-                    &entry_info,
-                    &tree_view_bad_extensions,
-                    &text_view_errors,
-                    &shared_bad_extensions_state,
-                    &shared_buttons,
-                    &buttons_array,
-                    &buttons_names,
-                );
-            }
+            glib::timeout_future(Duration::from_millis(300)).await;
         }
-        // Returning false here would close the receiver and have senders fail
-        glib::ControlFlow::Continue
     });
 }
 
-#[fun_time(message = "computer_bad_extensions", level = "debug")]
-fn computer_bad_extensions(
+#[fun_time(message = "compute_bad_extensions", level = "debug")]
+fn compute_bad_extensions(
     be: BadExtensions,
     entry_info: &Entry,
     tree_view: &TreeView,
     text_view_errors: &TextView,
-    shared_state: &Rc<RefCell<BadExtensions>>,
+    shared_state: &SharedState<BadExtensions>,
     shared_buttons: &Rc<RefCell<HashMap<NotebookMainEnum, HashMap<BottomButtonsEnum, bool>>>>,
     buttons_array: &[Widget; 9],
     buttons_names: &[BottomButtonsEnum; 9],
@@ -249,13 +252,7 @@ fn computer_bad_extensions(
         let text_messages = be.get_text_messages();
 
         let bad_extensions_number: usize = information.number_of_files_with_bad_extension;
-        entry_info.set_text(
-            flg!(
-                "compute_found_bad_extensions",
-                generate_translation_hashmap(vec![("number_files", bad_extensions_number.to_string()),])
-            )
-            .as_str(),
-        );
+        entry_info.set_text(flg!("compute_found_bad_extensions", number_files = bad_extensions_number).as_str());
 
         // Create GUI
         {
@@ -265,10 +262,7 @@ fn computer_bad_extensions(
 
             // Sort
             let mut vector = vector.clone();
-            vector.sort_unstable_by_key(|e| {
-                let t = split_path(e.path.as_path());
-                (t.0, t.1)
-            });
+            vector.par_sort_unstable_by(|a, b| split_path_compare(a.path.as_path(), b.path.as_path()));
 
             for file_entry in vector {
                 let (directory, file) = split_path(&file_entry.path);
@@ -277,10 +271,12 @@ fn computer_bad_extensions(
                     (ColumnsBadExtensions::Name as u32, &file),
                     (ColumnsBadExtensions::Path as u32, &directory),
                     (ColumnsBadExtensions::CurrentExtension as u32, &file_entry.current_extension),
-                    (ColumnsBadExtensions::ValidExtensions as u32, &file_entry.proper_extensions),
+                    (ColumnsBadExtensions::ValidExtensions as u32, &file_entry.proper_extensions_group),
                     (
                         ColumnsBadExtensions::Modification as u32,
-                        &(NaiveDateTime::from_timestamp_opt(file_entry.modified_date as i64, 0).unwrap().to_string()),
+                        &(DateTime::from_timestamp(file_entry.modified_date as i64, 0)
+                            .expect("Modified date always should be in valid range")
+                            .to_string()),
                     ),
                     (ColumnsBadExtensions::ModificationAsSecs as u32, &(file_entry.modified_date as i64)),
                 ];
@@ -291,12 +287,12 @@ fn computer_bad_extensions(
 
         // Set state
         {
-            *shared_state.borrow_mut() = be;
+            *shared_state.borrow_mut() = Some(be);
 
-            set_specific_buttons_as_active(shared_buttons, &NotebookMainEnum::Temporary, bad_extensions_number > 0);
+            set_specific_buttons_as_active(shared_buttons, NotebookMainEnum::Temporary, bad_extensions_number > 0);
 
             set_buttons(
-                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::Temporary).unwrap(),
+                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::Temporary).expect("Failed to borrow buttons"),
                 buttons_array,
                 buttons_names,
             );
@@ -304,13 +300,13 @@ fn computer_bad_extensions(
     }
 }
 
-#[fun_time(message = "computer_broken_files", level = "debug")]
-fn computer_broken_files(
+#[fun_time(message = "compute_broken_files", level = "debug")]
+fn compute_broken_files(
     br: BrokenFiles,
     entry_info: &Entry,
     tree_view: &TreeView,
     text_view_errors: &TextView,
-    shared_state: &Rc<RefCell<BrokenFiles>>,
+    shared_state: &SharedState<BrokenFiles>,
     shared_buttons: &Rc<RefCell<HashMap<NotebookMainEnum, HashMap<BottomButtonsEnum, bool>>>>,
     buttons_array: &[Widget; 9],
     buttons_names: &[BottomButtonsEnum; 9],
@@ -324,13 +320,7 @@ fn computer_broken_files(
 
         let broken_files_number: usize = information.number_of_broken_files;
 
-        entry_info.set_text(
-            flg!(
-                "compute_found_broken_files",
-                generate_translation_hashmap(vec![("number_files", broken_files_number.to_string()),])
-            )
-            .as_str(),
-        );
+        entry_info.set_text(flg!("compute_found_broken_files", number_files = broken_files_number).as_str());
 
         // Create GUI
         {
@@ -340,10 +330,7 @@ fn computer_broken_files(
 
             // Sort
             let mut vector = vector.clone();
-            vector.sort_unstable_by_key(|e| {
-                let t = split_path(e.path.as_path());
-                (t.0, t.1)
-            });
+            vector.par_sort_unstable_by(|a, b| split_path_compare(a.path.as_path(), b.path.as_path()));
 
             for file_entry in vector {
                 let (directory, file) = split_path(&file_entry.path);
@@ -354,7 +341,9 @@ fn computer_broken_files(
                     (ColumnsBrokenFiles::ErrorType as u32, &file_entry.error_string),
                     (
                         ColumnsBrokenFiles::Modification as u32,
-                        &(NaiveDateTime::from_timestamp_opt(file_entry.modified_date as i64, 0).unwrap().to_string()),
+                        &(DateTime::from_timestamp(file_entry.modified_date as i64, 0)
+                            .expect("Modified date always should be in valid range")
+                            .to_string()),
                     ),
                     (ColumnsBrokenFiles::ModificationAsSecs as u32, &(file_entry.modified_date as i64)),
                 ];
@@ -365,12 +354,12 @@ fn computer_broken_files(
 
         // Set state
         {
-            *shared_state.borrow_mut() = br;
+            *shared_state.borrow_mut() = Some(br);
 
-            set_specific_buttons_as_active(shared_buttons, &NotebookMainEnum::BrokenFiles, broken_files_number > 0);
+            set_specific_buttons_as_active(shared_buttons, NotebookMainEnum::BrokenFiles, broken_files_number > 0);
 
             set_buttons(
-                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::BrokenFiles).unwrap(),
+                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::BrokenFiles).expect("Failed to borrow buttons"),
                 buttons_array,
                 buttons_names,
             );
@@ -378,13 +367,13 @@ fn computer_broken_files(
     }
 }
 
-#[fun_time(message = "computer_invalid_symlinks", level = "debug")]
-fn computer_invalid_symlinks(
+#[fun_time(message = "compute_invalid_symlinks", level = "debug")]
+fn compute_invalid_symlinks(
     ifs: InvalidSymlinks,
     entry_info: &Entry,
     tree_view: &TreeView,
     text_view_errors: &TextView,
-    shared_state: &Rc<RefCell<InvalidSymlinks>>,
+    shared_state: &SharedState<InvalidSymlinks>,
     shared_buttons: &Rc<RefCell<HashMap<NotebookMainEnum, HashMap<BottomButtonsEnum, bool>>>>,
     buttons_array: &[Widget; 9],
     buttons_names: &[BottomButtonsEnum; 9],
@@ -398,13 +387,7 @@ fn computer_invalid_symlinks(
 
         let invalid_symlinks: usize = information.number_of_invalid_symlinks;
 
-        entry_info.set_text(
-            flg!(
-                "compute_found_invalid_symlinks",
-                generate_translation_hashmap(vec![("number_files", invalid_symlinks.to_string()),])
-            )
-            .as_str(),
-        );
+        entry_info.set_text(flg!("compute_found_invalid_symlinks", number_files = invalid_symlinks).as_str());
 
         // Create GUI
         {
@@ -414,19 +397,18 @@ fn computer_invalid_symlinks(
 
             for file_entry in vector {
                 let (directory, file) = split_path(&file_entry.path);
-                let symlink_info = file_entry.symlink_info.clone().expect("invalid traversal result");
+                let symlink_info = file_entry.symlink_info;
                 let values: [(u32, &dyn ToValue); COLUMNS_NUMBER] = [
                     (ColumnsInvalidSymlinks::SelectionButton as u32, &false),
                     (ColumnsInvalidSymlinks::Name as u32, &file),
                     (ColumnsInvalidSymlinks::Path as u32, &directory),
                     (ColumnsInvalidSymlinks::DestinationPath as u32, &symlink_info.destination_path.to_string_lossy().to_string()),
-                    (
-                        ColumnsInvalidSymlinks::TypeOfError as u32,
-                        &get_text_from_invalid_symlink_cause(&symlink_info.type_of_error),
-                    ),
+                    (ColumnsInvalidSymlinks::TypeOfError as u32, &get_text_from_invalid_symlink_cause(symlink_info.type_of_error)),
                     (
                         ColumnsInvalidSymlinks::Modification as u32,
-                        &(NaiveDateTime::from_timestamp_opt(file_entry.modified_date as i64, 0).unwrap().to_string()),
+                        &(DateTime::from_timestamp(file_entry.modified_date as i64, 0)
+                            .expect("Modified date always should be in valid range")
+                            .to_string()),
                     ),
                     (ColumnsInvalidSymlinks::ModificationAsSecs as u32, &(file_entry.modified_date as i64)),
                 ];
@@ -437,12 +419,12 @@ fn computer_invalid_symlinks(
 
         // Set state
         {
-            *shared_state.borrow_mut() = ifs;
+            *shared_state.borrow_mut() = Some(ifs);
 
-            set_specific_buttons_as_active(shared_buttons, &NotebookMainEnum::Symlinks, invalid_symlinks > 0);
+            set_specific_buttons_as_active(shared_buttons, NotebookMainEnum::Symlinks, invalid_symlinks > 0);
 
             set_buttons(
-                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::Symlinks).unwrap(),
+                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::Symlinks).expect("Failed to borrow buttons"),
                 buttons_array,
                 buttons_names,
             );
@@ -450,13 +432,13 @@ fn computer_invalid_symlinks(
     }
 }
 
-#[fun_time(message = "computer_same_music", level = "debug")]
-fn computer_same_music(
+#[fun_time(message = "compute_same_music", level = "debug")]
+fn compute_same_music(
     mf: SameMusic,
     entry_info: &Entry,
     tree_view: &TreeView,
     text_view_errors: &TextView,
-    shared_state: &Rc<RefCell<SameMusic>>,
+    shared_state: &SharedState<SameMusic>,
     shared_buttons: &Rc<RefCell<HashMap<NotebookMainEnum, HashMap<BottomButtonsEnum, bool>>>>,
     buttons_array: &[Widget; 9],
     buttons_names: &[BottomButtonsEnum; 9],
@@ -478,10 +460,8 @@ fn computer_same_music(
         entry_info.set_text(
             flg!(
                 "compute_found_music",
-                generate_translation_hashmap(vec![
-                    ("number_files", information.number_of_duplicates.to_string()),
-                    ("number_groups", information.number_of_groups.to_string()),
-                ])
+                number_files = information.number_of_duplicates,
+                number_groups = information.number_of_groups
             )
             .as_str(),
         );
@@ -490,7 +470,7 @@ fn computer_same_music(
         {
             let list_store = get_list_store(tree_view);
 
-            let music_similarity = *mf.get_music_similarity();
+            let music_similarity = mf.get_params().music_similarity;
 
             let is_track_title = (MusicSimilarity::TRACK_TITLE & music_similarity) != MusicSimilarity::NONE;
             let is_track_artist = (MusicSimilarity::TRACK_ARTIST & music_similarity) != MusicSimilarity::NONE;
@@ -506,10 +486,7 @@ fn computer_same_music(
                     // Sort
                     let vec_file_entry = if vec_file_entry.len() >= 2 {
                         let mut vec_file_entry = vec_file_entry.clone();
-                        vec_file_entry.sort_unstable_by_key(|e| {
-                            let t = split_path(e.path.as_path());
-                            (t.0, t.1)
-                        });
+                        vec_file_entry.par_sort_unstable_by(|a, b| split_path_compare(a.path.as_path(), b.path.as_path()));
                         vec_file_entry
                     } else {
                         vec_file_entry.clone()
@@ -555,16 +532,13 @@ fn computer_same_music(
             } else {
                 let vector = mf.get_duplicated_music_entries();
 
-                let text: &str = if mf.get_check_type() == CheckingMethod::AudioTags { "-----" } else { "" };
+                let text: &str = if mf.get_params().check_type == CheckingMethod::AudioTags { "-----" } else { "" };
 
                 for vec_file_entry in vector {
                     // Sort
                     let vec_file_entry = if vec_file_entry.len() >= 2 {
                         let mut vec_file_entry = vec_file_entry.clone();
-                        vec_file_entry.sort_unstable_by_key(|e| {
-                            let t = split_path(e.path.as_path());
-                            (t.0, t.1)
-                        });
+                        vec_file_entry.par_sort_unstable_by(|a, b| split_path_compare(a.path.as_path(), b.path.as_path()));
                         vec_file_entry
                     } else {
                         vec_file_entry.clone()
@@ -612,12 +586,12 @@ fn computer_same_music(
 
         // Set state
         {
-            *shared_state.borrow_mut() = mf;
+            *shared_state.borrow_mut() = Some(mf);
 
-            set_specific_buttons_as_active(shared_buttons, &NotebookMainEnum::SameMusic, same_music_number > 0);
+            set_specific_buttons_as_active(shared_buttons, NotebookMainEnum::SameMusic, same_music_number > 0);
 
             set_buttons(
-                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::SameMusic).unwrap(),
+                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::SameMusic).expect("Failed to borrow buttons"),
                 buttons_array,
                 buttons_names,
             );
@@ -625,13 +599,13 @@ fn computer_same_music(
     }
 }
 
-#[fun_time(message = "computer_similar_videos", level = "debug")]
-fn computer_similar_videos(
+#[fun_time(message = "compute_similar_videos", level = "debug")]
+fn compute_similar_videos(
     ff: SimilarVideos,
     entry_info: &Entry,
     tree_view: &TreeView,
     text_view_errors: &TextView,
-    shared_state: &Rc<RefCell<SimilarVideos>>,
+    shared_state: &SharedState<SimilarVideos>,
     shared_buttons: &Rc<RefCell<HashMap<NotebookMainEnum, HashMap<BottomButtonsEnum, bool>>>>,
     buttons_array: &[Widget; 9],
     buttons_names: &[BottomButtonsEnum; 9],
@@ -651,10 +625,8 @@ fn computer_similar_videos(
         entry_info.set_text(
             flg!(
                 "compute_found_videos",
-                generate_translation_hashmap(vec![
-                    ("number_files", information.number_of_duplicates.to_string()),
-                    ("number_groups", information.number_of_groups.to_string()),
-                ])
+                number_files = information.number_of_duplicates,
+                number_groups = information.number_of_groups
             )
             .as_str(),
         );
@@ -670,10 +642,7 @@ fn computer_similar_videos(
                     // Sort
                     let vec_file_entry = if vec_file_entry.len() >= 2 {
                         let mut vec_file_entry = vec_file_entry.clone();
-                        vec_file_entry.sort_unstable_by_key(|e| {
-                            let t = split_path(e.path.as_path());
-                            (t.0, t.1)
-                        });
+                        vec_file_entry.par_sort_unstable_by(|a, b| split_path_compare(a.path.as_path(), b.path.as_path()));
                         vec_file_entry
                     } else {
                         vec_file_entry.clone()
@@ -692,10 +661,7 @@ fn computer_similar_videos(
                     // Sort
                     let vec_file_entry = if vec_file_entry.len() >= 2 {
                         let mut vec_file_entry = vec_file_entry.clone();
-                        vec_file_entry.sort_unstable_by_key(|e| {
-                            let t = split_path(e.path.as_path());
-                            (t.0, t.1)
-                        });
+                        vec_file_entry.par_sort_unstable_by(|a, b| split_path_compare(a.path.as_path(), b.path.as_path()));
                         vec_file_entry
                     } else {
                         vec_file_entry.clone()
@@ -714,12 +680,12 @@ fn computer_similar_videos(
 
         // Set state
         {
-            *shared_state.borrow_mut() = ff;
+            *shared_state.borrow_mut() = Some(ff);
 
-            set_specific_buttons_as_active(shared_buttons, &NotebookMainEnum::SimilarVideos, found_any_duplicates);
+            set_specific_buttons_as_active(shared_buttons, NotebookMainEnum::SimilarVideos, found_any_duplicates);
 
             set_buttons(
-                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::SimilarVideos).unwrap(),
+                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::SimilarVideos).expect("Failed to borrow buttons"),
                 buttons_array,
                 buttons_names,
             );
@@ -727,13 +693,13 @@ fn computer_similar_videos(
     }
 }
 
-#[fun_time(message = "computer_similar_images", level = "debug")]
-fn computer_similar_images(
+#[fun_time(message = "compute_similar_images", level = "debug")]
+fn compute_similar_images(
     sf: SimilarImages,
     entry_info: &Entry,
     tree_view: &TreeView,
     text_view_errors: &TextView,
-    shared_state: &Rc<RefCell<SimilarImages>>,
+    shared_state: &SharedState<SimilarImages>,
     shared_buttons: &Rc<RefCell<HashMap<NotebookMainEnum, HashMap<BottomButtonsEnum, bool>>>>,
     buttons_array: &[Widget; 9],
     buttons_names: &[BottomButtonsEnum; 9],
@@ -755,10 +721,8 @@ fn computer_similar_images(
         entry_info.set_text(
             flg!(
                 "compute_found_images",
-                generate_translation_hashmap(vec![
-                    ("number_files", information.number_of_duplicates.to_string()),
-                    ("number_groups", information.number_of_groups.to_string()),
-                ])
+                number_files = information.number_of_duplicates,
+                number_groups = information.number_of_groups
             )
             .as_str(),
         );
@@ -768,17 +732,9 @@ fn computer_similar_images(
             let list_store = get_list_store(tree_view);
 
             if sf.get_use_reference() {
-                let vec_struct_similar: &Vec<(similar_images::FileEntry, Vec<similar_images::FileEntry>)> = sf.get_similar_images_referenced();
-                for (base_file_entry, vec_file_entry) in vec_struct_similar {
-                    // Sort
-                    let vec_file_entry = if vec_file_entry.len() >= 2 {
-                        let mut vec_file_entry = vec_file_entry.clone();
-                        // Use comparison by similarity, because it is more important that path here
-                        vec_file_entry.sort_unstable_by_key(|e| e.similarity);
-                        vec_file_entry
-                    } else {
-                        vec_file_entry.clone()
-                    };
+                let vec_struct_similar: Vec<(ImagesEntry, Vec<ImagesEntry>)> = sf.get_similar_images_referenced().clone();
+                for (base_file_entry, mut vec_file_entry) in vec_struct_similar {
+                    vec_file_entry.sort_by_key(|e| e.similarity);
 
                     // Header
                     let (directory, file) = split_path(&base_file_entry.path);
@@ -788,7 +744,7 @@ fn computer_similar_images(
                         &directory,
                         base_file_entry.size,
                         base_file_entry.modified_date,
-                        &base_file_entry.dimensions,
+                        &format!("{}x{}", base_file_entry.width, base_file_entry.height),
                         0,
                         hash_size,
                         true,
@@ -802,7 +758,7 @@ fn computer_similar_images(
                             &directory,
                             file_entry.size,
                             file_entry.modified_date,
-                            &file_entry.dimensions,
+                            &format!("{}x{}", file_entry.width, file_entry.height),
                             file_entry.similarity,
                             hash_size,
                             false,
@@ -811,17 +767,9 @@ fn computer_similar_images(
                     }
                 }
             } else {
-                let vec_struct_similar = sf.get_similar_images();
-                for vec_file_entry in vec_struct_similar {
-                    // Sort
-                    let vec_file_entry = if vec_file_entry.len() >= 2 {
-                        let mut vec_file_entry = vec_file_entry.clone();
-                        // Use comparison by similarity, because it is more important that path here
-                        vec_file_entry.sort_unstable_by_key(|e| e.similarity);
-                        vec_file_entry
-                    } else {
-                        vec_file_entry.clone()
-                    };
+                let vec_struct_similar = sf.get_similar_images().clone();
+                for mut vec_file_entry in vec_struct_similar {
+                    vec_file_entry.sort_by_key(|e| e.similarity);
 
                     similar_images_add_to_list_store(&list_store, "", "", 0, 0, "", 0, 0, true, false);
                     for file_entry in &vec_file_entry {
@@ -832,7 +780,7 @@ fn computer_similar_images(
                             &directory,
                             file_entry.size,
                             file_entry.modified_date,
-                            &file_entry.dimensions,
+                            &format!("{}x{}", file_entry.width, file_entry.height),
                             file_entry.similarity,
                             hash_size,
                             false,
@@ -847,12 +795,12 @@ fn computer_similar_images(
 
         // Set state
         {
-            *shared_state.borrow_mut() = sf;
+            *shared_state.borrow_mut() = Some(sf);
 
-            set_specific_buttons_as_active(shared_buttons, &NotebookMainEnum::SimilarImages, found_any_duplicates);
+            set_specific_buttons_as_active(shared_buttons, NotebookMainEnum::SimilarImages, found_any_duplicates);
 
             set_buttons(
-                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::SimilarImages).unwrap(),
+                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::SimilarImages).expect("Failed to borrow buttons"),
                 buttons_array,
                 buttons_names,
             );
@@ -860,13 +808,13 @@ fn computer_similar_images(
     }
 }
 
-#[fun_time(message = "computer_temporary_files", level = "debug")]
-fn computer_temporary_files(
+#[fun_time(message = "compute_temporary_files", level = "debug")]
+fn compute_temporary_files(
     tf: Temporary,
     entry_info: &Entry,
     tree_view: &TreeView,
     text_view_errors: &TextView,
-    shared_state: &Rc<RefCell<Temporary>>,
+    shared_state: &SharedState<Temporary>,
     shared_buttons: &Rc<RefCell<HashMap<NotebookMainEnum, HashMap<BottomButtonsEnum, bool>>>>,
     buttons_array: &[Widget; 9],
     buttons_names: &[BottomButtonsEnum; 9],
@@ -879,13 +827,7 @@ fn computer_temporary_files(
         let text_messages = tf.get_text_messages();
 
         let temporary_files_number: usize = information.number_of_temporary_files;
-        entry_info.set_text(
-            flg!(
-                "compute_found_temporary_files",
-                generate_translation_hashmap(vec![("number_files", temporary_files_number.to_string()),])
-            )
-            .as_str(),
-        );
+        entry_info.set_text(flg!("compute_found_temporary_files", number_files = temporary_files_number).as_str());
 
         // Create GUI
         {
@@ -895,10 +837,7 @@ fn computer_temporary_files(
 
             // Sort // TODO maybe simplify this via common file entry
             let mut vector = vector.clone();
-            vector.sort_unstable_by_key(|e| {
-                let t = split_path(e.path.as_path());
-                (t.0, t.1)
-            });
+            vector.par_sort_unstable_by(|a, b| split_path_compare(a.path.as_path(), b.path.as_path()));
 
             for file_entry in vector {
                 let (directory, file) = split_path(&file_entry.path);
@@ -908,7 +847,9 @@ fn computer_temporary_files(
                     (ColumnsTemporaryFiles::Path as u32, &directory),
                     (
                         ColumnsTemporaryFiles::Modification as u32,
-                        &(NaiveDateTime::from_timestamp_opt(file_entry.modified_date as i64, 0).unwrap().to_string()),
+                        &(DateTime::from_timestamp(file_entry.modified_date as i64, 0)
+                            .expect("Modified date always should be in valid range")
+                            .to_string()),
                     ),
                     (ColumnsTemporaryFiles::ModificationAsSecs as u32, &(file_entry.modified_date as i64)),
                 ];
@@ -919,12 +860,12 @@ fn computer_temporary_files(
 
         // Set state
         {
-            *shared_state.borrow_mut() = tf;
+            *shared_state.borrow_mut() = Some(tf);
 
-            set_specific_buttons_as_active(shared_buttons, &NotebookMainEnum::Temporary, temporary_files_number > 0);
+            set_specific_buttons_as_active(shared_buttons, NotebookMainEnum::Temporary, temporary_files_number > 0);
 
             set_buttons(
-                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::Temporary).unwrap(),
+                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::Temporary).expect("Failed to borrow buttons"),
                 buttons_array,
                 buttons_names,
             );
@@ -932,13 +873,13 @@ fn computer_temporary_files(
     }
 }
 
-#[fun_time(message = "computer_big_files", level = "debug")]
-fn computer_big_files(
+#[fun_time(message = "compute_big_files", level = "debug")]
+fn compute_big_files(
     bf: BigFile,
     entry_info: &Entry,
     tree_view: &TreeView,
     text_view_errors: &TextView,
-    shared_state: &Rc<RefCell<BigFile>>,
+    shared_state: &SharedState<BigFile>,
     shared_buttons: &Rc<RefCell<HashMap<NotebookMainEnum, HashMap<BottomButtonsEnum, bool>>>>,
     buttons_array: &[Widget; 9],
     buttons_names: &[BottomButtonsEnum; 9],
@@ -952,13 +893,7 @@ fn computer_big_files(
 
         let biggest_files_number: usize = information.number_of_real_files;
 
-        entry_info.set_text(
-            flg!(
-                "compute_found_big_files",
-                generate_translation_hashmap(vec![("number_files", biggest_files_number.to_string()),])
-            )
-            .as_str(),
-        );
+        entry_info.set_text(flg!("compute_found_big_files", number_files = biggest_files_number).as_str());
 
         // Create GUI
         {
@@ -975,7 +910,9 @@ fn computer_big_files(
                     (ColumnsBigFiles::Path as u32, &directory),
                     (
                         ColumnsBigFiles::Modification as u32,
-                        &(NaiveDateTime::from_timestamp_opt(file_entry.modified_date as i64, 0).unwrap().to_string()),
+                        &(DateTime::from_timestamp(file_entry.modified_date as i64, 0)
+                            .expect("Modified date always should be in valid range")
+                            .to_string()),
                     ),
                     (ColumnsBigFiles::ModificationAsSecs as u32, &(file_entry.modified_date as i64)),
                     (ColumnsBigFiles::SizeAsBytes as u32, &(file_entry.size)),
@@ -987,12 +924,12 @@ fn computer_big_files(
 
         // Set state
         {
-            *shared_state.borrow_mut() = bf;
+            *shared_state.borrow_mut() = Some(bf);
 
-            set_specific_buttons_as_active(shared_buttons, &NotebookMainEnum::BigFiles, biggest_files_number > 0);
+            set_specific_buttons_as_active(shared_buttons, NotebookMainEnum::BigFiles, biggest_files_number > 0);
 
             set_buttons(
-                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::BigFiles).unwrap(),
+                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::BigFiles).expect("Failed to borrow buttons"),
                 buttons_array,
                 buttons_names,
             );
@@ -1000,13 +937,13 @@ fn computer_big_files(
     }
 }
 
-#[fun_time(message = "computer_empty_files", level = "debug")]
-fn computer_empty_files(
+#[fun_time(message = "compute_empty_files", level = "debug")]
+fn compute_empty_files(
     vf: EmptyFiles,
     entry_info: &Entry,
     tree_view: &TreeView,
     text_view_errors: &TextView,
-    shared_state: &Rc<RefCell<EmptyFiles>>,
+    shared_state: &SharedState<EmptyFiles>,
     shared_buttons: &Rc<RefCell<HashMap<NotebookMainEnum, HashMap<BottomButtonsEnum, bool>>>>,
     buttons_array: &[Widget; 9],
     buttons_names: &[BottomButtonsEnum; 9],
@@ -1020,13 +957,7 @@ fn computer_empty_files(
 
         let empty_files_number: usize = information.number_of_empty_files;
 
-        entry_info.set_text(
-            flg!(
-                "compute_found_empty_files",
-                generate_translation_hashmap(vec![("number_files", empty_files_number.to_string()),])
-            )
-            .as_str(),
-        );
+        entry_info.set_text(flg!("compute_found_empty_files", number_files = empty_files_number).as_str());
 
         // Create GUI
         {
@@ -1043,7 +974,9 @@ fn computer_empty_files(
                     (ColumnsEmptyFiles::Path as u32, &directory),
                     (
                         ColumnsEmptyFiles::Modification as u32,
-                        &(NaiveDateTime::from_timestamp_opt(file_entry.modified_date as i64, 0).unwrap().to_string()),
+                        &(DateTime::from_timestamp(file_entry.modified_date as i64, 0)
+                            .expect("Modified date always should be in valid range")
+                            .to_string()),
                     ),
                     (ColumnsEmptyFiles::ModificationAsSecs as u32, &(file_entry.modified_date as i64)),
                 ];
@@ -1054,12 +987,12 @@ fn computer_empty_files(
 
         // Set state
         {
-            *shared_state.borrow_mut() = vf;
+            *shared_state.borrow_mut() = Some(vf);
 
-            set_specific_buttons_as_active(shared_buttons, &NotebookMainEnum::EmptyFiles, empty_files_number > 0);
+            set_specific_buttons_as_active(shared_buttons, NotebookMainEnum::EmptyFiles, empty_files_number > 0);
 
             set_buttons(
-                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::EmptyFiles).unwrap(),
+                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::EmptyFiles).expect("Failed to borrow buttons"),
                 buttons_array,
                 buttons_names,
             );
@@ -1067,13 +1000,13 @@ fn computer_empty_files(
     }
 }
 
-#[fun_time(message = "computer_empty_folders", level = "debug")]
-fn computer_empty_folders(
+#[fun_time(message = "compute_empty_folders", level = "debug")]
+fn compute_empty_folders(
     ef: EmptyFolder,
     entry_info: &Entry,
     tree_view: &TreeView,
     text_view_errors: &TextView,
-    shared_state: &Rc<RefCell<EmptyFolder>>,
+    shared_state: &SharedState<EmptyFolder>,
     shared_buttons: &Rc<RefCell<HashMap<NotebookMainEnum, HashMap<BottomButtonsEnum, bool>>>>,
     buttons_array: &[Widget; 9],
     buttons_names: &[BottomButtonsEnum; 9],
@@ -1087,37 +1020,30 @@ fn computer_empty_folders(
 
         let empty_folder_number: usize = information.number_of_empty_folders;
 
-        entry_info.set_text(
-            flg!(
-                "compute_found_empty_folders",
-                generate_translation_hashmap(vec![("number_files", empty_folder_number.to_string()),])
-            )
-            .as_str(),
-        );
+        entry_info.set_text(flg!("compute_found_empty_folders", number_files = empty_folder_number).as_str());
 
         // Create GUI
         {
             let list_store = get_list_store(tree_view);
 
             let hashmap = ef.get_empty_folder_list();
-            let mut vector = hashmap.keys().cloned().collect::<Vec<PathBuf>>();
+            let mut vector = hashmap.values().collect::<Vec<_>>();
 
-            vector.sort_unstable_by_key(|e| {
-                let t = split_path(e.as_path());
-                (t.0, t.1)
-            });
+            vector.par_sort_unstable_by(|a, b| split_path_compare(a.path.as_path(), b.path.as_path()));
 
-            for path in vector {
-                let (directory, file) = split_path(&path);
+            for fe in vector {
+                let (directory, file) = split_path(&fe.path);
                 let values: [(u32, &dyn ToValue); COLUMNS_NUMBER] = [
                     (ColumnsEmptyFolders::SelectionButton as u32, &false),
                     (ColumnsEmptyFolders::Name as u32, &file),
                     (ColumnsEmptyFolders::Path as u32, &directory),
                     (
                         ColumnsEmptyFolders::Modification as u32,
-                        &(NaiveDateTime::from_timestamp_opt(hashmap.get(&path).unwrap().modified_date as i64, 0).unwrap().to_string()),
+                        &(DateTime::from_timestamp(fe.modified_date as i64, 0)
+                            .expect("Modified date always should be in valid range")
+                            .to_string()),
                     ),
-                    (ColumnsEmptyFolders::ModificationAsSecs as u32, &(hashmap.get(&path).unwrap().modified_date)),
+                    (ColumnsEmptyFolders::ModificationAsSecs as u32, &(fe.modified_date)),
                 ];
                 list_store.set(&list_store.append(), &values);
             }
@@ -1126,12 +1052,12 @@ fn computer_empty_folders(
 
         // Set state
         {
-            *shared_state.borrow_mut() = ef;
+            *shared_state.borrow_mut() = Some(ef);
 
-            set_specific_buttons_as_active(shared_buttons, &NotebookMainEnum::EmptyDirectories, empty_folder_number > 0);
+            set_specific_buttons_as_active(shared_buttons, NotebookMainEnum::EmptyDirectories, empty_folder_number > 0);
 
             set_buttons(
-                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::EmptyDirectories).unwrap(),
+                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::EmptyDirectories).expect("Failed to borrow buttons"),
                 buttons_array,
                 buttons_names,
             );
@@ -1139,13 +1065,13 @@ fn computer_empty_folders(
     }
 }
 
-#[fun_time(message = "computer_duplicate_finder", level = "debug")]
-fn computer_duplicate_finder(
+#[fun_time(message = "compute_duplicate_finder", level = "debug")]
+fn compute_duplicate_finder(
     df: DuplicateFinder,
     entry_info: &Entry,
     tree_view_duplicate_finder: &TreeView,
     text_view_errors: &TextView,
-    shared_state: &Rc<RefCell<DuplicateFinder>>,
+    shared_state: &SharedState<DuplicateFinder>,
     shared_buttons: &Rc<RefCell<HashMap<NotebookMainEnum, HashMap<BottomButtonsEnum, bool>>>>,
     buttons_array: &[Widget; 9],
     buttons_names: &[BottomButtonsEnum; 9],
@@ -1166,7 +1092,7 @@ fn computer_duplicate_finder(
         let duplicates_size: u64;
         let duplicates_group: usize;
 
-        match df.get_check_method() {
+        match df.get_params().check_method {
             CheckingMethod::Name => {
                 duplicates_number = information.number_of_duplicated_files_by_name;
                 duplicates_size = 0;
@@ -1190,22 +1116,14 @@ fn computer_duplicate_finder(
             _ => panic!(),
         }
         if duplicates_size == 0 {
-            entry_info.set_text(
-                flg!(
-                    "compute_found_duplicates_name",
-                    generate_translation_hashmap(vec![("number_files", duplicates_number.to_string()), ("number_groups", duplicates_group.to_string())])
-                )
-                .as_str(),
-            );
+            entry_info.set_text(flg!("compute_found_duplicates_name", number_files = duplicates_number, number_groups = duplicates_group).as_str());
         } else {
             entry_info.set_text(
                 flg!(
                     "compute_found_duplicates_hash_size",
-                    generate_translation_hashmap(vec![
-                        ("number_files", duplicates_number.to_string()),
-                        ("number_groups", duplicates_group.to_string()),
-                        ("size", format_size(duplicates_size, BINARY))
-                    ])
+                    number_files = duplicates_number,
+                    number_groups = duplicates_group,
+                    size = format_size(duplicates_size, BINARY)
                 )
                 .as_str(),
             );
@@ -1216,7 +1134,7 @@ fn computer_duplicate_finder(
             let list_store = get_list_store(tree_view_duplicate_finder);
 
             if df.get_use_reference() {
-                match df.get_check_method() {
+                match df.get_params().check_method {
                     CheckingMethod::Name => {
                         let btreemap = df.get_files_with_identical_name_referenced();
 
@@ -1275,7 +1193,7 @@ fn computer_duplicate_finder(
                     _ => panic!(),
                 }
             } else {
-                match df.get_check_method() {
+                match df.get_params().check_method {
                     CheckingMethod::Name => {
                         let btreemap = df.get_files_sorted_by_names();
 
@@ -1337,12 +1255,12 @@ fn computer_duplicate_finder(
 
         // Set state
         {
-            *shared_state.borrow_mut() = df;
+            *shared_state.borrow_mut() = Some(df);
 
-            set_specific_buttons_as_active(shared_buttons, &NotebookMainEnum::Duplicate, duplicates_number > 0);
+            set_specific_buttons_as_active(shared_buttons, NotebookMainEnum::Duplicate, duplicates_number > 0);
 
             set_buttons(
-                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::Duplicate).unwrap(),
+                &mut *shared_buttons.borrow_mut().get_mut(&NotebookMainEnum::Duplicate).expect("Failed to borrow buttons"),
                 buttons_array,
                 buttons_names,
             );
@@ -1350,25 +1268,25 @@ fn computer_duplicate_finder(
     }
 }
 
-fn vector_sort_unstable_entry_by_path(vector: &Vec<FileEntry>) -> Vec<FileEntry> {
+fn vector_sort_unstable_entry_by_path<T>(vector: &[T]) -> Vec<T>
+where
+    T: ResultEntry + Clone + Send,
+{
     if vector.len() >= 2 {
-        let mut vector = vector.clone();
-        vector.sort_unstable_by_key(|e| {
-            let t = split_path(e.path.as_path());
-            (t.0, t.1)
-        });
+        let mut vector = vector.to_vec();
+        vector.par_sort_unstable_by(|a, b| split_path_compare(a.get_path(), b.get_path()));
         vector
     } else {
-        vector.clone()
+        vector.to_vec()
     }
 }
 
-fn vector_sort_simple_unstable_entry_by_path(vector: &[FileEntry]) -> Vec<FileEntry> {
-    let mut vector = vector.to_owned();
-    vector.sort_unstable_by_key(|e| {
-        let t = split_path(e.path.as_path());
-        (t.0, t.1)
-    });
+fn vector_sort_simple_unstable_entry_by_path<T>(vector: &[T]) -> Vec<T>
+where
+    T: ResultEntry + Clone + Send,
+{
+    let mut vector = vector.to_vec();
+    vector.par_sort_unstable_by(|a, b| split_path_compare(a.get_path(), b.get_path()));
     vector
 }
 
@@ -1383,7 +1301,9 @@ fn duplicates_add_to_list_store(list_store: &ListStore, file: &str, directory: &
         string_date = String::new();
     } else {
         size_str = format_size(size, BINARY);
-        string_date = NaiveDateTime::from_timestamp_opt(modified_date as i64, 0).unwrap().to_string();
+        string_date = DateTime::from_timestamp(modified_date as i64, 0)
+            .expect("Modified date always should be in valid range")
+            .to_string();
     };
 
     let values: [(u32, &dyn ToValue); COLUMNS_NUMBER] = [
@@ -1431,7 +1351,9 @@ fn similar_images_add_to_list_store(
         string_date = String::new();
     } else {
         size_str = format_size(size, BINARY);
-        string_date = NaiveDateTime::from_timestamp_opt(modified_date as i64, 0).unwrap().to_string();
+        string_date = DateTime::from_timestamp(modified_date as i64, 0)
+            .expect("Modified date always should be in valid range")
+            .to_string();
     }
 
     let values: [(u32, &dyn ToValue); COLUMNS_NUMBER] = [
@@ -1462,7 +1384,9 @@ fn similar_videos_add_to_list_store(list_store: &ListStore, file: &str, director
         string_date = String::new();
     } else {
         size_str = format_size(size, BINARY);
-        string_date = NaiveDateTime::from_timestamp_opt(modified_date as i64, 0).unwrap().to_string();
+        string_date = DateTime::from_timestamp(modified_date as i64, 0)
+            .expect("Modified date always should be in valid range")
+            .to_string();
     };
 
     let values: [(u32, &dyn ToValue); COLUMNS_NUMBER] = [
@@ -1507,7 +1431,9 @@ fn same_music_add_to_list_store(
         string_date = String::new();
     } else {
         size_str = format_size(size, BINARY);
-        string_date = NaiveDateTime::from_timestamp_opt(modified_date as i64, 0).unwrap().to_string();
+        string_date = DateTime::from_timestamp(modified_date as i64, 0)
+            .expect("Modified date always should be in valid range")
+            .to_string();
     };
 
     let values: [(u32, &dyn ToValue); COLUMNS_NUMBER] = [
@@ -1534,11 +1460,11 @@ fn same_music_add_to_list_store(
     list_store.set(&list_store.append(), &values);
 }
 
-fn set_specific_buttons_as_active(buttons_array: &Rc<RefCell<HashMap<NotebookMainEnum, HashMap<BottomButtonsEnum, bool>>>>, notebook_enum: &NotebookMainEnum, value_to_set: bool) {
+fn set_specific_buttons_as_active(buttons_array: &Rc<RefCell<HashMap<NotebookMainEnum, HashMap<BottomButtonsEnum, bool>>>>, notebook_enum: NotebookMainEnum, value_to_set: bool) {
     let mut b_mut = buttons_array.borrow_mut();
-    let butt = b_mut.get_mut(notebook_enum).unwrap();
-    let allowed_buttons = NOTEBOOKS_INFO[*notebook_enum as usize].bottom_buttons;
+    let butt = b_mut.get_mut(&notebook_enum).expect("Failed to borrow buttons");
+    let allowed_buttons = NOTEBOOKS_INFO[notebook_enum as usize].bottom_buttons;
     for i in allowed_buttons {
-        *butt.get_mut(i).unwrap() = value_to_set;
+        *butt.get_mut(i).expect("Failed to borrow buttons") = value_to_set;
     }
 }

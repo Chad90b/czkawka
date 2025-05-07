@@ -1,0 +1,69 @@
+import { Button, VerticalBox , HorizontalBox, TabWidget, ListView, StandardListView, StandardTableView, CheckBox} from "std-widgets.slint";
+import {SelectableTableView} from "selectable_tree_view.slint";
+import {LeftSidePanel} from "left_side_panel.slint";
+import {MainList} from "main_lists.slint";
+import {CurrentTab, ProgressToSend} from "common.slint";
+import { ProgressIndicator } from "std-widgets.slint";
+import { Translations } from "translations.slint";
+
+export component Progress {
+    in-out property <ProgressToSend> progress_datas;
+    preferred-width: 400px;
+    preferred-height: 40px;
+    VerticalLayout {
+        Text {
+            text: progress-datas.step_name;
+            horizontal-alignment: TextHorizontalAlignment.center;
+        }
+
+        HorizontalLayout {
+            spacing: 5px;
+            VerticalLayout {
+                spacing: 5px;
+                Text {
+                    vertical-alignment: TextVerticalAlignment.center;
+                    text: Translations.stage_current_text;
+                }
+
+                Text {
+                    vertical-alignment: TextVerticalAlignment.center;
+                    text: Translations.stage_all_text;
+                }
+            }
+
+            VerticalLayout {
+                spacing: 5px;
+                VerticalLayout {
+                    alignment: LayoutAlignment.center;
+                    ProgressIndicator {
+                        visible: progress_datas.current_progress >= -0.001;
+                        height: 8px;
+                        progress: progress_datas.current_progress_size == -1 ? progress_datas.current_progress / 100.0 : progress_datas.current_progress_size / 100.0;
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: LayoutAlignment.center;
+                    ProgressIndicator {
+                        height: 8px;
+                        progress: progress_datas.all_progress / 100.0;
+                    }
+                }
+            }
+
+            VerticalLayout {
+                spacing: 5px;
+                Text {
+                    visible: progress_datas.current_progress >= -0.001;
+                    vertical-alignment: TextVerticalAlignment.center;
+                    text: (progress_datas.current_progress_size == -1 ? progress_datas.current_progress : progress_datas.current_progress_size) + "%";
+                }
+
+                Text {
+                    vertical-alignment: TextVerticalAlignment.center;
+                    text: progress_datas.all_progress + "%";
+                }
+            }
+        }
+    }
+}

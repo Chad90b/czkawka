@@ -1,0 +1,55 @@
+import { SelectMode, SortMode } from "common.slint";
+import {CurrentTab} from "common.slint";
+
+export global Callabler {
+    // Bottom panel operations
+    callback remove_item_directories(bool);
+    callback added_manual_directories(bool, string);
+
+    // Row selecting
+    callback reset_selection(CurrentTab);
+
+    callback row_select_all();
+    callback row_reverse_single_unique_item(int);
+    callback row_reverse_item_selection(int);
+    callback row_select_items_with_shift(int, int);
+
+    callback row_open_selected_item();
+    callback row_open_parent_of_selected_item();
+
+    callback row_reverse_checked_selection();
+    callback row_open_item_with_index(int);
+
+    // Right click or middle click opener
+    callback open_item(string);
+    callback open_selected_item(CurrentTab);
+
+    callback delete_selected_items();
+    callback select_items(SelectMode);
+    callback sort_items(SortMode);
+
+    // Preview
+    callback load_image_preview(string);
+
+    // Settings
+    callback changed_settings_preset();
+    callback save_current_preset();
+    callback load_current_preset();
+    callback reset_current_preset();
+    callback changed_language();
+
+    callback tab_changed();
+
+    // Dialogs
+    callback save_results();
+    callback move_items(bool, bool, string);
+    callback rename_files();
+
+    // Only Slint
+    callback open_select_popup();
+
+    callback open_config_folder();
+    callback open_cache_folder();
+
+    callback open_link(string);
+}

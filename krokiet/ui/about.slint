@@ -1,0 +1,74 @@
+import { Button, VerticalBox , HorizontalBox, TabWidget, ListView, StandardListView, StandardTableView, CheckBox, ScrollView, LineEdit, SpinBox, ComboBox, TextEdit, Slider} from "std-widgets.slint";
+import { Settings } from "settings.slint";
+import { Callabler } from "callabler.slint";
+import { GuiState } from "gui_state.slint";
+import { Translations } from "translations.slint";
+
+export component About inherits VerticalLayout {
+    preferred-height: 300px;
+    preferred-width: 400px;
+
+    img := Image {
+        source: @image-url("../icons/krokiet_logo.png");
+        image-fit: ImageFit.contain;
+    }
+
+    Text {
+        text: "9.0.0";
+        horizontal-alignment: center;
+        font-size: max(min(img.width / 20, 17px), 10px);
+    }
+
+    VerticalLayout {
+        spacing: 10px;
+        padding-bottom: 10px;
+        Text {
+            text: "2020 - 2025  Rafał Mikrut(qarmin)";
+            horizontal-alignment: center;
+            font-size: 15px;
+        }
+
+        Text {
+            text <=> Translations.motto_text;
+            horizontal-alignment: center;
+            font-size: 13px;
+        }
+
+        Text {
+            text <=> Translations.unicorn_text;
+            horizontal-alignment: center;
+            font-size: 13px;
+        }
+    }
+
+    HorizontalLayout {
+        spacing: 5px;
+        Button {
+            text <=> Translations.repository_text;
+            clicked => {
+                Callabler.open_link("https://github.com/qarmin/czkawka");
+            }
+        }
+
+        Button {
+            text <=> Translations.instruction_text;
+            clicked => {
+                Callabler.open_link("https://github.com/qarmin/czkawka/blob/master/instructions/Instruction.md");
+            }
+        }
+
+        Button {
+            text <=> Translations.donation_text;
+            clicked => {
+                Callabler.open_link("https://github.com/sponsors/qarmin");
+            }
+        }
+
+        Button {
+            text <=> Translations.translation_text;
+            clicked => {
+                Callabler.open_link("https://crwd.in/czkawka");
+            }
+        }
+    }
+}

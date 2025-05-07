@@ -8,7 +8,7 @@ general_ok_button = Гаразд
 general_close_button = Закрити
 # Main window
 music_title_checkbox = Найменування
-music_artist_checkbox = Художник
+music_artist_checkbox = Виконавець
 music_year_checkbox = Рік
 music_bitrate_checkbox = Бітрейт
 music_genre_checkbox = Жанр
@@ -18,6 +18,11 @@ music_checking_by_tags = Мітки
 music_checking_by_content = Зміст
 same_music_seconds_label = Мінімальна тривалість фрагменту
 same_music_similarity_label = Максимальна різниця
+music_compare_only_in_title_group = Порівняти лише в заголовку
+music_compare_only_in_title_group_tooltip =
+    When enabled, files are grouped by title and then compared to each other.
+    
+    With 10000 files, instead almost 100 million comparisons usually there will be around 20000 comparisons.
 same_music_tooltip =
     Пошук подібних музичних файлів за його вмістом може бути налаштований за налаштуванням:
     
@@ -60,21 +65,21 @@ duplicate_check_method_tooltip =
     
     Хеш – шукає файли з однаковим вмістом. Цей режим хешує файл, а потім порівнює хеш для пошуку дублікатів. Цей режим є найнадійнішим способом пошуку. Додаток активно використовує кеш, тому друге та подальші сканування одних і тих же даних повинні бути набагато швидшими, ніж перше.
 image_hash_size_tooltip =
-    Кожна відмічена картинка створює спеціальний хеш, який можна порівняти з іншими, і невелика різниця між ними означає, що ці зображення є схожими.
+    Кожне перевірене зображення видає спеціальний хеш, який можна порівнювати один з одним, і невелика різниця між ними означає, що ці зображення є схожими.
     
-    Розмір 8 хешу досить добре знайти зображення, які є трохи схожими на оригінал. З більшим набором зображень (>1000) буде видавати велику кількість помилкових позитивних даних, тож я рекомендуємо використовувати для такого обсягу більший хеш.
+    8 хешів дуже добре знайти зображення, які є трохи схожими на оригінал. При великому наборі зображень (>1000) значення дає велику кількість хибних позитивних результатів, так що я рекомендую використовувати більший розмір хешу у цьому випадку.
     
-    16 є розміром хеш-максимально за замовчуванням, який доволі хороший компроміс між пошуком навіть мало схожих зображень і його зіткненнями з хешем.
+    16 - це хеш за замовчуванням, який є досить хороший компроміс між пошуком навіть мало схожих зображень і маючи тільки невелику кількість хеш-зіткнень.
     
-    32 і 64 хеші знаходять тільки дуже схожі зображення, але майже не повинні мати будь-яких хибних додатніх (можливо, лише деякі зображення з альфа-каналом).
+    32 і 64 пеші знайдуть лише дуже схожі зображення, але не повинні мати практично неправильних позитивних результатів (можливо, окрім деяких зображень з альфа каналом).
 image_resize_filter_tooltip =
-    Щоб обчислити хеш зображення, бібліотека повинна спочатку змінити розмір зображення.
+    Щоб обчислити хеш зображення, бібліотека має спочатку його перемасштабувати.
     
-    Залежно від обраного алгоритму, видано зображення, яке використовується для розрахунку хешу може виглядати трохи інакше.
+    Залежно від обраного алгоритму отримане зображення, яке використовується при хешуванні, може виглядати трохи інакше.
     
-    Найшвидший алгоритм використання, але також той, який дає найгірші результати є Найближчим, за замовчуванням увімкнено, тому що з розміром 16х16 х16 хеш, нижча якість її не є справді видимою.
+    Найшвидший алгоритм з низькою якістю — це метод найближчого сусіда, Nearest. Він увімкнений за замовчуванням, тому при розмірі хешу 16×16 погана якість не помітна.
     
-    Рекомендується використовувати 8x8 хешування з різним алгоритмом, ніж в найближчого, для того щоб мати кращі групи зображень.
+    Якщо розмір хешу 8×8, рекомендується будь-який алгоритм, крім Nearest, щоб краще відрізняти подібні зображення в групах.
 image_hash_alg_tooltip =
     Користувачі можуть вибирати з одного з багатьох алгоритмів обчислення хешу.
     
@@ -129,7 +134,7 @@ main_check_box_broken_files_pdf = Pdf
 main_check_box_broken_files_archive = Архів
 main_check_box_broken_files_image = Зображення
 check_button_general_same_size = Ігнорувати однаковий розмір
-check_button_general_same_size_tooltip = Ігнорувати в результатах файли, що мають однаковий розмір: зазвичай це точні дублікати
+check_button_general_same_size_tooltip = Ігнорувати файли з однаковим розміром у результаті - зазвичай це 1:1 дублікатів
 main_label_size_bytes_tooltip = Розмір файлів, які будуть проскановані
 # Upper window
 upper_tree_view_included_folder_column_title = Папки для пошуку
@@ -167,11 +172,16 @@ upper_allowed_extensions_tooltip =
     Макроси IMAGE, VIDEO, MUSIC, TEXT додають одразу кілька розширень.
         
     Приклад використання: «.exe, IMAGE, VIDEO, .rar, 7z» — це означає, що будуть скануватися файли зображень (напр. jpg, png), відео (напр. avi, mp4), exe, rar і 7z.
+upper_excluded_extensions_tooltip =
+    Список вимкнених файлів, які будуть ігноруватися при скануванні.
+    
+    При використанні дозволених і вимкнених розширень, цей файл має більший пріоритет, тому файл не буде відмітити.
 upper_excluded_items_tooltip =
     Виключені елементи повинні містити маску «*» і бути розділені комами.
     Це повільніше, ніж «Виключені каталоги», тому використовуйте обережно.
 upper_excluded_items = Виключені елементи:
 upper_allowed_extensions = Дозволені розширення:
+upper_excluded_extensions = Вимкнені розширення:
 # Popovers
 popover_select_all = Виділити все
 popover_unselect_all = Прибрати всі
@@ -236,6 +246,7 @@ bottom_symlink_button = Симв. посилання
 bottom_hardlink_button = Жорст. посилання
 bottom_move_button = Перемістити
 bottom_sort_button = Сортування
+bottom_compare_button = Порівняти
 bottom_search_button_tooltip = Почати пошук
 bottom_select_button_tooltip = Виберіть запис. Тільки вибрані файли/папки будуть доступні для подальшої обробки.
 bottom_delete_button_tooltip = Видалити вибрані файли/папки.
@@ -258,6 +269,7 @@ bottom_move_button_tooltip =
     Копіює всі файли в теку без збереження структури дерева каталогів.
     При спробі перемістити два файли з однаковим ім'ям в ту саму теку другий не буде переміщений, і з'явиться повідомлення про помилку.
 bottom_sort_button_tooltip = Сортує файли/теки відповідно до вибраного методу.
+bottom_compare_button_tooltip = Порівняйте зображення в групі.
 bottom_show_errors_tooltip = Показати/приховати нижню текстову панель.
 bottom_show_upper_notebook_tooltip = Показати/приховати верхню панель блокнота.
 # Progress Window
@@ -282,7 +294,14 @@ header_about_button_tooltip = Відкриває діалогове вікно �
 ## General
 
 settings_number_of_threads = Кількість використаних тем
-settings_number_of_threads_tooltip = Кількість використаних потоків, 0 означає, що будуть використовуватися всі доступні потоки.
+settings_number_of_threads_tooltip = Кількість використаних потоків; встановіть 0, щоб використовувати всі доступні потоки.
+settings_use_rust_preview = Використовувати зовнішні бібліотеки gtk для завантаження прев'ю
+settings_use_rust_preview_tooltip =
+    Використання gtk прев'ю іноді може бути швидшим і підтримувати більше форматів, але іноді це може бути зовсім навпаки.
+    
+    Якщо у вас виникли проблеми з завантаженням превью, можна змінити цей параметр.
+    
+    У нелінійних системах рекомендується використовувати цей параметр, тому, що gtk-pixbuf не завжди доступні, тому вимкнення цього параметру не буде завантажувати попередній перегляд деяких зображень.
 settings_label_restart = Щоб застосувати параметри, необхідно перезапустити додаток!
 settings_ignore_other_filesystems = Ігнорувати інші файлові системи (лише Linux)
 settings_ignore_other_filesystems_tooltip =
@@ -333,7 +352,7 @@ settings_multiple_image_preview_checkbutton = Показати попередн�
 settings_multiple_clear_cache_button_tooltip =
     Очищення застарілих записів кешу вручну.
     Слід використовувати лише в тому випадку, якщо автоматичне очищення вимкнено.
-settings_multiple_clear_cache_button = Видалити застарілі результати з кешу зображень
+settings_multiple_clear_cache_button = Видалити застарілі результати з кешу.
 
 ## Duplicates
 
@@ -397,22 +416,36 @@ compute_found_invalid_symlinks = Знайдено { $number_files } неприп
 compute_found_broken_files = Знайдено зламаних файлів: { $number_files }
 compute_found_bad_extensions = Знайдено { $number_files } файлів з недійсними розширеннями
 # Progress window
-progress_scanning_general_file = Сканування файлу: { $file_number }
-progress_scanning_extension_of_files = Перевірка розширення { $file_checked }/{ $all_files } файлу
-progress_scanning_broken_files = Перевірка файлу: { $file_checked }/{ $all_files }
-progress_scanning_video = Хешування відео: { $file_checked }/{ $all_files }
-progress_scanning_image = Хешування зображення: { $file_checked }/{ $all_files }
-progress_comparing_image_hashes = Порівняння хешу зображення: { $file_checked }/{ $all_files }
-progress_scanning_music_tags_end = Порівняння тегів музичного файлу: { $file_checked }/{ $all_files }
-progress_scanning_music_tags = Читання тегів музичного файлу: { $file_checked }/{ $all_files }
-progress_scanning_music_content_end = Порівняння відбитку пальця { $file_checked }/{ $all_files } музичного файлу
-progress_scanning_music_content = Розрахунок відбитку пальця { $file_checked }/{ $all_files } музичного файлу
-progress_scanning_empty_folders = Сканування теки { $folder_number }
-progress_scanning_size = Сканування розміру файлу { $file_number }
-progress_scanning_size_name = Сканування назви і розміру файлу { $file_number }
-progress_scanning_name = Сканування імені файлу { $file_number }
-progress_analyzed_partial_hash = Аналіз часткового хешу файлу { $file_checked }/{ $all_files }
-progress_analyzed_full_hash = Аналіз повного хешу файлу { $file_checked }/{ $all_files }
+progress_scanning_general_file =
+    { $file_number ->
+        [one] Відсканований { $file_number } файл
+       *[other] Відсканований { $file_number } файли
+    }
+progress_scanning_extension_of_files = Перевірено розширення { $file_checked }/{ $all_files } файлу
+progress_scanning_broken_files = Перевірено { $file_checked }/{ $all_files } файл ({ $data_checked }/{ $all_data })
+progress_scanning_video = Створено відео з { $file_checked }/{ $all_files }
+progress_scanning_image = Створено зображення { $file_checked }/{ $all_files } ({ $data_checked }/{ $all_data })
+progress_comparing_image_hashes = Порівняо { $file_checked }/{ $all_files } хеш зображення
+progress_scanning_music_tags_end = Порівняті теґи { $file_checked }/{ $all_files } музичний файл
+progress_scanning_music_tags = Read tags of { $file_checked }/{ $all_files } music file
+progress_scanning_music_content_end = Відбиток порівняльного відбитка { $file_checked }/{ $all_files } музичного файлу
+progress_scanning_music_content = Розраховано відбиток пальця { $file_checked }/{ $all_files } музичного файлу ({ $data_checked }/{ $all_data })
+progress_scanning_empty_folders =
+    { $folder_number ->
+        [one] Скановано { $folder_number } папку
+       *[other] Скановано { $folder_number } папки
+    }
+progress_scanning_size = Відсканований розмір файлу { $file_number }
+progress_scanning_size_name = Відскановане ім'я і розмір файлу { $file_number }
+progress_scanning_name = Відскановано ім'я файлу { $file_number }
+progress_analyzed_partial_hash = Проаналізовано частковий хеш { $file_checked }/{ $all_files } файлів ({ $data_checked }/{ $all_data })
+progress_analyzed_full_hash = Проаналізовано повний хеш { $file_checked }/{ $all_files } файлів ({ $data_checked }/{ $all_data })
+progress_prehash_cache_loading = Завантаження цільового кешу
+progress_prehash_cache_saving = Збереження цілковитого кешу
+progress_hash_cache_loading = Завантаження схованки
+progress_hash_cache_saving = Збереження кешу кешу
+progress_cache_loading = Завантаження кешу
+progress_cache_saving = Збереження кешу
 progress_current_stage = Поточний етап: { "  " }
 progress_all_stages = Усі етапи: { "  " }
 # Saving loading 
@@ -444,7 +477,7 @@ text_view_warnings = ПОПЕРЕДЖЕННЯ
 text_view_errors = ПОМИЛКИ
 about_window_motto = Ця програма безкоштовна для використання і завжди буде такою.
 # Various dialog
-dialogs_ask_next_time = Запитати наступного разу
+dialogs_ask_next_time = Завжди запитувати
 delete_file_failed = Не вдалося видалити файл { $name }. Причина: { $reason }
 delete_title_dialog = Підтвердження видалення
 delete_question_label = Ви впевнені, що бажаєте видалити файли?
@@ -466,7 +499,7 @@ move_file_failed = Не вдалося перемістити файл { $name }
 move_files_title_dialog = Виберіть теку, в яку хочете перемістити дубльовані файли
 move_files_choose_more_than_1_path = Можна вибрати лише один шлях для копіювання дублікатів файлів, але вибрано { $path_number }.
 move_stats = Вдалося перемістити без помилок елементів: { $num_files }/{ $all_files }
-save_results_to_file = Збережені результати до файлу { $name }
+save_results_to_file = Збережено результати як з txt, так і з json файлів в теку { $name }.
 search_not_choosing_any_music = Помилка: Ви повинні вибрати принаймні один прапорець з типами пошуку музики.
 search_not_choosing_any_broken_files = ПОМИЛКА: Ви повинні вибрати принаймні один прапорець з типом пошкоджених файлів.
 include_folders_dialog_title = Теки для включення

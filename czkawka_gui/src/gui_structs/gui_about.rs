@@ -20,19 +20,20 @@ impl GuiAbout {
         let glade_src = include_str!("../../ui/about_dialog.ui").to_string();
         let builder = Builder::from_string(glade_src.as_str());
 
-        let about_dialog: gtk4::AboutDialog = builder.object("about_dialog").unwrap();
+        let about_dialog: gtk4::AboutDialog = builder.object("about_dialog").expect("Cambalache");
         about_dialog.set_modal(true);
         about_dialog.set_transient_for(Some(window_main));
 
         about_dialog.set_logo(Picture::for_pixbuf(logo).paintable().as_ref());
 
-        // Taken from command - "git shortlog -s -n -e" - remember to remove duplicates
-        // First clean it with regex " \<[^\n]+" and next with " +[0-9]+\t" and at end replace "([^\n]+)" with ""$1","
+        // Taken from command - "git shortlog -s -n -e > a.txt" - remember to remove duplicates
+        // First clean it with regex " \<[^\n]+" and next with " +[0-9]+\t" and at end replace "([^\n]+)" with ""$1"," (or ""\0",")
         // This should be updated only before releasing new version
         about_dialog.set_authors(&[
             "Rafał Mikrut",
             "Alexis Lefebvre",
             "Thomas Andreas Jung",
+            "Alexis Lefebvre",
             "Peter Blackson",
             "TheEvilSkeleton",
             "Ben Bodenmiller",
@@ -40,47 +41,66 @@ impl GuiAbout {
             "Dan Dascalescu",
             "Dominik Piątkowski",
             "Igor",
+            "Jocelyn Le Sage",
             "Kerfuffle",
             "Shriraj Hegde",
             "krzysdz",
             "0x4A6F",
             "0xflotus",
+            "Aarni Koskela",
             "Adam Boguszewski",
             "Alex",
+            "AshesOfEther",
             "Caduser2020",
+            "CalunVier",
             "Danny Kirkham",
             "Dariusz Niedoba",
             "Douman",
             "Elazar Fine",
             "Farmadupe",
+            "Fr_Dae",
             "Gitoffthelawn",
+            "Integral",
             "Ivan Habernal",
             "Jan Jurec",
             "Joey Babcock",
             "Jona",
             "Jonathan Hult",
             "Kian-Meng Ang",
+            "Liru Wilkowski",
             "Meir Klemfner",
             "Mek101",
             "Michael Grigoryan",
+            "Mitchel Stewart",
+            "Nick Gallimore",
             "Nikita Karamov",
             "OMEGA_RAZER",
+            "Renner0E",
             "Rodrigo Torres",
+            "Samuel",
             "Sbgodin",
             "Spirit",
             "Stefan Seering",
             "Syfaro",
+            "Sébastien",
+            "Tom Paine",
+            "Tom Praschan",
+            "Torsten Homberger",
             "Yuri Slobodyanyuk",
             "alexdraconian",
             "bakeromso",
             "bellrise",
+            "codingnewcode",
             "cyqsimon",
             "endolith",
             "jann",
             "kamilek96",
             "kuskov",
+            "rugk",
+            "santiago fn",
             "tecome",
             "tenninjas",
+            "undefined-landmark",
         ]);
 
         let custom_box = get_all_boxes_from_widget(&about_dialog)[2].clone(); // TODO may not be stable enough between GTK versions
@@ -108,7 +128,7 @@ impl GuiAbout {
     }
 
     pub fn update_language(&self) {
-        let mut comment_text: String = "2020 - 2023  Rafał Mikrut(qarmin)\n\n".to_string();
+        let mut comment_text: String = "2020 - 2025  Rafał Mikrut(qarmin)\n\n".to_string();
         comment_text += &flg!("about_window_motto");
         self.about_dialog.set_comments(Some(&comment_text));
 

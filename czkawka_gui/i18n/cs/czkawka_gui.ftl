@@ -18,6 +18,11 @@ music_checking_by_tags = Štítky
 music_checking_by_content = Obsah
 same_music_seconds_label = Minimální délka trvání druhého fragmentu
 same_music_similarity_label = Maximální rozdíl
+music_compare_only_in_title_group = Porovnat pouze v názvu
+music_compare_only_in_title_group_tooltip =
+    Pokud je povoleno, soubory jsou seskupeny podle názvu a poté vzájemně porovnávány.
+    
+    S 10000 soubory, místo toho se obvykle uskuteční téměř 100 milionů srovnání kolem 20000 srovnání.
 same_music_tooltip =
     Vyhledávání podobných hudebních souborů podle jejich obsahu může být nakonfigurováno nastavením:
     
@@ -60,21 +65,21 @@ duplicate_check_method_tooltip =
     
     Hash - Najde soubory, které mají stejný obsah. Tento režim hashuje soubor a později porovnává tento hash s nalezením duplikátů. Tento režim je nejbezpečnějším způsobem, jak nalézt duplikáty. Aplikace používá mezipaměť, takže druhé a další skenování stejných dat by mělo být mnohem rychlejší než první.
 image_hash_size_tooltip =
-    Každý zkontrolovaný obrázek vytváří speciální hash, který lze vzájemně porovnávat, a malý rozdíl mezi nimi znamená, že tyto obrázky jsou podobné.
+    Každý zkontrolovaný obrázek vytváří speciální hash který lze porovnávat, a malý rozdíl mezi nimi znamená, že tyto obrázky jsou podobné.
     
-    8 hash velikost je docela dobrá k nalezení obrázků, které jsou jen málo podobné originálům. S větší sadou obrázků(>1000) bude produkovat velké množství falešných pozitivních výsledků, takže doporučuji použít pro takovou částku větší hash velikosti.
+    8 hash velikost je docela dobrá k nalezení obrázků, které jsou jen trochu podobné originálům. S větší sadou obrázků (>1000) to vytvoří velké množství falešných pozitivních prvků, takže doporučuji v tomto případě použít větší hash velikost.
     
-    16 je výchozí velikost hash, což je docela dobrý kompromis mezi nalezením i trochu podobných obrázků a malým množstvím srážek hash.
+    16 je výchozí velikost hashu, což je docela dobrý kompromis mezi nalezením i trochu podobných obrázků a malým množstvím hashových kolizí.
     
-    32 a 64 hashy najde jen velmi podobné obrázky, ale téměř by neměly mít žádné falešné pozitivní (možná kromě některých obrázků s alfa kanálem).
+    32 a 64 hash nalezly jen velmi podobné obrázky, ale neměly by mít téměř žádné falešné pohledy (možná kromě některých obrázků s alfa kanálem).
 image_resize_filter_tooltip =
     Pro výpočet hash obrázku musí knihovna nejprve změnit velikost.
     
-    V závislosti na zvoleném algoritmu může výsledný obrázek použitý k výpočtu hash vypadat málo jinak.
+    V závislosti na zvoleném algoritmu bude výsledný obrázek použitý k výpočtu hash vypadat trochu jinak.
     
-    Nejrychlejší algoritmus k používání, ale také ten, který dává nejhorší výsledky, je nejblíže, je ve výchozím nastavení povoleno, protože s 16x16 hash velikostí, nižší kvalitou, není opravdu viditelná.
+    Nejrychlejší algoritmus k používání, ale také ten, který dává nejhorší výsledky, je blízko. Ve výchozím nastavení je povoleno, protože s menší kvalitou 16x16 hash není ve skutečnosti viditelná.
     
-    S velikostí 8x8 hash je doporučeno použít jiný algoritmus než nejbližší pro lepší skupiny obrázků.
+    S velikostí hash 8x8 je doporučeno použít jiný algoritmus než nejbližší pro lepší skupiny obrázků.
 image_hash_alg_tooltip =
     Uživatelé si mohou vybrat z jednoho z mnoha algoritmů pro výpočet hashu.
     
@@ -129,7 +134,7 @@ main_check_box_broken_files_pdf = Pdf
 main_check_box_broken_files_archive = Archivovat
 main_check_box_broken_files_image = Obrázek
 check_button_general_same_size = Ignorovat stejnou velikost
-check_button_general_same_size_tooltip = Ignorovat výsledky souborů, které mají stejnou velikost - obvykle jde o 1:1 duplicitní
+check_button_general_same_size_tooltip = Ignorovat soubory se stejnou velikostí ve výsledcích - obvykle se jedná o 1:1 duplicitní
 main_label_size_bytes_tooltip = Velikost souborů, které budou použity při skenování
 # Upper window
 upper_tree_view_included_folder_column_title = Vyhledávané složky
@@ -167,11 +172,16 @@ upper_allowed_extensions_tooltip =
     Následující makra, která přidávají více rozšíření najednou, jsou také k dispozici: IMAGE, VIDEO, MUSIC, TEXT.
     
     Příklad použití ".exe, IMAGE, VIDEO, .rar, 7z" - to znamená, že obrázky (např. . jpg, png), videa (např. avi, mp4), exe, rar a 7z soubory budou naskenovány.
+upper_excluded_extensions_tooltip =
+    Seznam zakázaných souborů, které budou při skenování ignorovány.
+    
+    Při používání povolených i zakázaných přípon, má tato vyšší prioritu, takže soubor nebude zaškrtnut.
 upper_excluded_items_tooltip =
     Vyloučené položky musí obsahovat * zástupné znaky a měly by být odděleny čárkami.
     To je pomalejší než vyloučené adresáře, proto je používáme opatrně.
 upper_excluded_items = Vyloučené položky:
 upper_allowed_extensions = Povolená rozšíření:
+upper_excluded_extensions = Zakázané rozšíření:
 # Popovers
 popover_select_all = Vybrat vše
 popover_unselect_all = Odznačit vše
@@ -236,6 +246,7 @@ bottom_symlink_button = Symlink
 bottom_hardlink_button = Hardlink
 bottom_move_button = Přesunout
 bottom_sort_button = Seřadit
+bottom_compare_button = Porovnat
 bottom_search_button_tooltip = Začít hledání
 bottom_select_button_tooltip = Vyberte záznamy. Pouze vybrané soubory/složky mohou být později zpracovány.
 bottom_delete_button_tooltip = Odstranit vybrané soubory/složky.
@@ -258,6 +269,7 @@ bottom_move_button_tooltip =
     Zkopíruje všechny soubory do adresáře bez uchování stromu adresáře.
     Při pokusu přesunout dva soubory se stejným názvem do složky, druhý selže a zobrazí chybu.
 bottom_sort_button_tooltip = Seřazuje soubory/složky podle zvolené metody.
+bottom_compare_button_tooltip = Porovnat obrázky ve skupině.
 bottom_show_errors_tooltip = Zobrazit/skrýt spodní textový panel.
 bottom_show_upper_notebook_tooltip = Zobrazit/skrýt horní panel sešitu.
 # Progress Window
@@ -283,6 +295,13 @@ header_about_button_tooltip = Otevře dialog s informacemi o aplikaci.
 
 settings_number_of_threads = Počet použitých vláken
 settings_number_of_threads_tooltip = Počet použitých vláken, 0 znamená, že budou použita všechna dostupná vlákna.
+settings_use_rust_preview = Místo toho použít externí knihovny gtk k načtení náhledů
+settings_use_rust_preview_tooltip =
+    Použití gtk náhledů bude někdy rychlejší a bude podporovat více formátů, ale někdy to může být pravý opak.
+    
+    Pokud máte problémy s načítáním náhledů, můžete zkusit toto nastavení změnit.
+    
+    Na jiných než linuxových systémech je doporučeno použít tuto možnost, protože gtk-pixbuf není vždy k dispozici, takže vypnutí této možnosti nebude načíst náhledy některých obrázků.
 settings_label_restart = Pro použití nastavení je třeba restartovat aplikaci!
 settings_ignore_other_filesystems = Ignorovat ostatní souborové systémy (pouze Linux)
 settings_ignore_other_filesystems_tooltip =
@@ -333,7 +352,7 @@ settings_multiple_image_preview_checkbutton = Zobrazit náhled obrázku
 settings_multiple_clear_cache_button_tooltip =
     Ručně vymazat mezipaměť zastaralých položek.
     Toto by mělo být použito pouze v případě, že je zakázáno automatické vymazání.
-settings_multiple_clear_cache_button = Odstranit zastaralé výsledky z mezipaměti obrázků
+settings_multiple_clear_cache_button = Odstranit zastaralé výsledky z mezipaměti.
 
 ## Duplicates
 
@@ -397,22 +416,36 @@ compute_found_invalid_symlinks = Nalezeno { $number_files } neplatných symbolic
 compute_found_broken_files = Nalezeno { $number_files } poškozených souborů
 compute_found_bad_extensions = Nalezeno { $number_files } souborů s neplatnými příponami
 # Progress window
-progress_scanning_general_file = Skenování { $file_number } souboru
-progress_scanning_extension_of_files = Kontrola přípony souboru { $file_checked }/{ $all_files }
-progress_scanning_broken_files = Kontrola souboru { $file_checked }/{ $all_files }
-progress_scanning_video = Hashování { $file_checked }/{ $all_files } videa
-progress_scanning_image = Hashování { $file_checked }/{ $all_files } obrázku
-progress_comparing_image_hashes = Porovnávám { $file_checked }/{ $all_files } hash obrázků
-progress_scanning_music_tags_end = Porovnávání značek s { $file_checked }/{ $all_files } hudebním souborem
-progress_scanning_music_tags = Čtení tagů z { $file_checked }/{ $all_files } hudebního souboru
-progress_scanning_music_content_end = Porovnání otisku prstu v { $file_checked }/{ $all_files } hudebního souboru
-progress_scanning_music_content = Výpočet otisku prstu { $file_checked }/{ $all_files } hudebního souboru
-progress_scanning_empty_folders = Skenování { $folder_number } složky
-progress_scanning_size = Skenování velikosti { $file_number } souboru
-progress_scanning_size_name = Skenování jména a velikosti souboru { $file_number }
-progress_scanning_name = Skenování názvu souboru { $file_number }
-progress_analyzed_partial_hash = Analyzován částečný hash souborů { $file_checked }/{ $all_files }
-progress_analyzed_full_hash = Analyzováno úplné hash souborů { $file_checked }/{ $all_files }
+progress_scanning_general_file =
+    { $file_number ->
+        [one] Naskenovaný { $file_number } soubor
+       *[other] Skenované { $file_number } soubory
+    }
+progress_scanning_extension_of_files = Kontrola přípony { $file_checked }/{ $all_files } souboru
+progress_scanning_broken_files = Kontrola { $file_checked }/{ $all_files } soubor ({ $data_checked }/{ $all_data })
+progress_scanning_video = Hashováno { $file_checked }/{ $all_files } videa
+progress_scanning_image = Hashed of { $file_checked }/{ $all_files } image ({ $data_checked }/{ $all_data })
+progress_comparing_image_hashes = Porovnáno { $file_checked }/{ $all_files } hash obrázků
+progress_scanning_music_tags_end = Porovnávané štítky hudebního souboru { $file_checked }/{ $all_files }
+progress_scanning_music_tags = Číst tagy { $file_checked }/{ $all_files } hudebního souboru
+progress_scanning_music_content_end = Porovnávaný otisk hudby { $file_checked }/{ $all_files }
+progress_scanning_music_content = Vypočítaný otisk hudby { $file_checked }/{ $all_files } ({ $data_checked }/{ $all_data })
+progress_scanning_empty_folders =
+    { $folder_number ->
+        [one] Naskenovaná složka { $folder_number }
+       *[other] Naskenovaná { $folder_number } složky
+    }
+progress_scanning_size = Naskenovaná velikost souboru { $file_number }
+progress_scanning_size_name = Naskenovaný název a velikost { $file_number } souboru
+progress_scanning_name = Naskenované jméno { $file_number } souboru
+progress_analyzed_partial_hash = Analyzováno částečné hash souborů { $file_checked }/{ $all_files } ({ $data_checked }/{ $all_data })
+progress_analyzed_full_hash = Analyzováno plné hash souborů { $file_checked }/{ $all_files } ({ $data_checked }/{ $all_data })
+progress_prehash_cache_loading = Načítání mezipaměti rozpoznání
+progress_prehash_cache_saving = Ukládání mezipaměti rozpoznání
+progress_hash_cache_loading = Načítání hash keše
+progress_hash_cache_saving = Ukládání keše hash
+progress_cache_loading = Načítání keše
+progress_cache_saving = Ukládání keše
 progress_current_stage = Aktuální fáze:{ " " }
 progress_all_stages = Všechny etapy:{ " " }
 # Saving loading 
@@ -466,7 +499,7 @@ move_file_failed = Nepodařilo se přesunout soubor { $name }, důvod { $reason 
 move_files_title_dialog = Vyberte složku, do které chcete přesunout duplicitní soubory
 move_files_choose_more_than_1_path = Lze vybrat pouze jednu cestu, aby bylo možné zkopírovat jejich duplikované soubory, vybrané { $path_number }.
 move_stats = Správně přesunuto { $num_files }/{ $all_files } položek
-save_results_to_file = Uložené výsledky do souboru { $name }
+save_results_to_file = Uloženy výsledky do txt i json souborů do složky { $name }.
 search_not_choosing_any_music = CHYBA: Musíte vybrat alespoň jedno zaškrtávací políčko s prohledáváním hudby.
 search_not_choosing_any_broken_files = CHYBA: Musíte vybrat alespoň jedno zaškrtávací políčko s typem zkontrolovaných poškozených souborů.
 include_folders_dialog_title = Složky, které chcete zahrnout

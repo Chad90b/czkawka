@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::common_dir_traversal::ToolType;
+use crate::common_dir_traversal::{CheckingMethod, ToolType};
 use crate::common_directory::Directories;
 use crate::common_extensions::Extensions;
 use crate::common_items::ExcludedItems;
@@ -11,7 +11,7 @@ pub struct CommonToolData {
     pub(crate) tool_type: ToolType,
     pub(crate) text_messages: Messages,
     pub(crate) directories: Directories,
-    pub(crate) allowed_extensions: Extensions,
+    pub(crate) extensions: Extensions,
     pub(crate) excluded_items: ExcludedItems,
     pub(crate) recursive_search: bool,
     pub(crate) delete_method: DeleteMethod,
@@ -35,6 +35,10 @@ pub enum DeleteMethod {
     OneOldest,
     OneNewest,
     HardLink,
+    AllExceptBiggest,
+    AllExceptSmallest,
+    OneBiggest,
+    OneSmallest,
 }
 
 impl CommonToolData {
@@ -43,7 +47,7 @@ impl CommonToolData {
             tool_type,
             text_messages: Messages::new(),
             directories: Directories::new(),
-            allowed_extensions: Extensions::new(),
+            extensions: Extensions::new(),
             excluded_items: ExcludedItems::new(),
             recursive_search: true,
             delete_method: DeleteMethod::None,
@@ -62,6 +66,16 @@ impl CommonToolData {
 pub trait CommonData {
     fn get_cd(&self) -> &CommonToolData;
     fn get_cd_mut(&mut self) -> &mut CommonToolData;
+    fn get_check_method(&self) -> CheckingMethod {
+        CheckingMethod::None
+    }
+    fn get_test_type(&self) -> (ToolType, CheckingMethod) {
+        (self.get_cd().tool_type, self.get_check_method())
+    }
+
+    fn get_tool_type(&self) -> ToolType {
+        self.get_cd().tool_type
+    }
 
     fn set_dry_run(&mut self, dry_run: bool) {
         self.get_cd_mut().dry_run = dry_run;
@@ -168,39 +182,43 @@ pub trait CommonData {
         self.get_cd_mut().text_messages.extend_with_another_messages(messages);
     }
     fn set_allowed_extensions(&mut self, allowed_extensions: String) {
-        let messages = self.get_cd_mut().allowed_extensions.set_allowed_extensions(allowed_extensions);
+        let messages = self.get_cd_mut().extensions.set_allowed_extensions(allowed_extensions);
+        self.get_cd_mut().text_messages.extend_with_another_messages(messages);
+    }
+    fn set_excluded_extensions(&mut self, excluded_extensions: String) {
+        let messages = self.get_cd_mut().extensions.set_excluded_extensions(excluded_extensions);
         self.get_cd_mut().text_messages.extend_with_another_messages(messages);
     }
 
     fn set_excluded_items(&mut self, excluded_items: Vec<String>) {
-        let (messages, warnings, errors) = self.get_cd_mut().excluded_items.set_excluded_items(excluded_items);
-        self.get_cd_mut().text_messages.messages.extend(messages);
-        self.get_cd_mut().text_messages.warnings.extend(warnings);
-        self.get_cd_mut().text_messages.errors.extend(errors);
+        let messages = self.get_cd_mut().excluded_items.set_excluded_items(excluded_items);
+        self.get_cd_mut().text_messages.extend_with_another_messages(messages);
     }
 
-    fn optimize_dirs_before_start(&mut self) {
+    fn prepare_items(&mut self) {
         let recursive_search = self.get_cd().recursive_search;
+        // Optimizes directories and removes recursive calls
         let messages = self.get_cd_mut().directories.optimize_directories(recursive_search);
         self.get_cd_mut().text_messages.extend_with_another_messages(messages);
     }
 
+    #[allow(clippy::print_stdout)]
     fn debug_print_common(&self) {
         println!("---------------DEBUG PRINT COMMON---------------");
         println!("Tool type: {:?}", self.get_cd().tool_type);
         println!("Directories: {:?}", self.get_cd().directories);
-        println!("Allowed extensions: {:?}", self.get_cd().allowed_extensions);
+        println!("Extensions: {:?}", self.get_cd().extensions);
         println!("Excluded items: {:?}", self.get_cd().excluded_items);
-        println!("Recursive search: {:?}", self.get_cd().recursive_search);
-        println!("Maximal file size: {:?}", self.get_cd().maximal_file_size);
-        println!("Minimal file size: {:?}", self.get_cd().minimal_file_size);
-        println!("Stopped search: {:?}", self.get_cd().stopped_search);
-        println!("Use cache: {:?}", self.get_cd().use_cache);
-        println!("Delete outdated cache: {:?}", self.get_cd().delete_outdated_cache);
-        println!("Save also as json: {:?}", self.get_cd().save_also_as_json);
+        println!("Recursive search: {}", self.get_cd().recursive_search);
+        println!("Maximal file size: {}", self.get_cd().maximal_file_size);
+        println!("Minimal file size: {}", self.get_cd().minimal_file_size);
+        println!("Stopped search: {}", self.get_cd().stopped_search);
+        println!("Use cache: {}", self.get_cd().use_cache);
+        println!("Delete outdated cache: {}", self.get_cd().delete_outdated_cache);
+        println!("Save also as json: {}", self.get_cd().save_also_as_json);
         println!("Delete method: {:?}", self.get_cd().delete_method);
-        println!("Use reference folders: {:?}", self.get_cd().use_reference_folders);
-        println!("Dry run: {:?}", self.get_cd().dry_run);
+        println!("Use reference folders: {}", self.get_cd().use_reference_folders);
+        println!("Dry run: {}", self.get_cd().dry_run);
 
         println!("---------------DEBUG PRINT MESSAGES---------------");
         println!("Errors size - {}", self.get_cd().text_messages.errors.len());

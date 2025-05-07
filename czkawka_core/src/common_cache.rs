@@ -1,44 +1,63 @@
+use std::collections::{BTreeMap, HashMap};
+use std::fs;
+use std::io::{BufReader, BufWriter};
+use std::path::Path;
+
+use bincode::Options;
+use fun_time::fun_time;
+use humansize::{BINARY, format_size};
+use image::imageops::FilterType;
+use image_hasher::HashAlg;
+use log::{debug, error};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use serde::{Deserialize, Serialize};
+
 use crate::common;
 use crate::common_messages::Messages;
 use crate::common_traits::ResultEntry;
-use crate::duplicate::HashType;
-use crate::similar_images::{convert_algorithm_to_string, convert_filters_to_string};
-use fun_time::fun_time;
-use image::imageops::FilterType;
-use image_hasher::HashAlg;
-use log::debug;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-use std::io::{BufReader, BufWriter};
+use crate::tools::duplicate::HashType;
+use crate::tools::similar_images::{convert_algorithm_to_string, convert_filters_to_string};
+
+const CACHE_VERSION: &str = "100";
+const CACHE_DUPLICATE_VERSION: &str = "100";
+#[cfg(feature = "fast_image_resize")]
+const CACHE_IMAGE_VERSION: &str = "100_fast_resize";
+#[cfg(not(feature = "fast_image_resize"))]
+const CACHE_IMAGE_VERSION: &str = "100_image_rs_resize";
+const CACHE_VIDEO_VERSION: &str = "100";
+
+const MEMORY_LIMIT: u64 = 4 * 1024 * 1024 * 1024;
 
 pub fn get_broken_files_cache_file() -> String {
-    "cache_broken_files_61.bin".to_string()
+    format!("cache_broken_files_{CACHE_VERSION}.bin")
 }
 
 pub fn get_similar_images_cache_file(hash_size: &u8, hash_alg: &HashAlg, image_filter: &FilterType) -> String {
     format!(
-        "cache_similar_images_{}_{}_{}_61.bin",
-        hash_size,
+        "cache_similar_images_{hash_size}_{}_{}_{CACHE_IMAGE_VERSION}.bin",
         convert_algorithm_to_string(hash_alg),
         convert_filters_to_string(image_filter),
     )
 }
 
 pub fn get_similar_videos_cache_file() -> String {
-    "cache_similar_videos_61.bin".to_string()
+    format!("cache_similar_videos_{CACHE_VIDEO_VERSION}.bin")
 }
-pub fn get_similar_music_cache_file(checking_tags: bool) -> &'static str {
+pub fn get_similar_music_cache_file(checking_tags: bool) -> String {
     if checking_tags {
-        "cache_same_music_tags_61.bin"
+        format!("cache_same_music_tags_{CACHE_VERSION}.bin")
     } else {
-        "cache_same_music_fingerprints_61.bin"
+        format!("cache_same_music_fingerprints_{CACHE_VERSION}.bin")
     }
 }
 
 pub fn get_duplicate_cache_file(type_of_hash: &HashType, is_prehash: bool) -> String {
     let prehash_str = if is_prehash { "_prehash" } else { "" };
-    format!("cache_duplicates_{type_of_hash:?}{prehash_str}_61.bin")
+    format!("cache_duplicates_{type_of_hash:?}{prehash_str}_{CACHE_DUPLICATE_VERSION}.bin")
+}
+
+fn get_cache_size(file_name: &Path) -> String {
+    fs::metadata(file_name).map_or_else(|_| "<unknown size>".to_string(), |metadata| format_size(metadata.len(), BINARY))
 }
 
 #[fun_time(message = "save_cache_to_file_generalized", level = "debug")]
@@ -53,27 +72,24 @@ where
         let hashmap_to_save = hashmap.values().filter(|t| t.get_size() >= minimum_file_size).collect::<Vec<_>>();
 
         {
-            let writer = BufWriter::new(file_handler.unwrap()); // Unwrap because cannot fail here
-            if let Err(e) = bincode::serialize_into(writer, &hashmap_to_save) {
-                text_messages
-                    .warnings
-                    .push(format!("Cannot write data to cache file {}, reason {}", cache_file.display(), e));
-                debug!("Failed to save cache to file {:?}", cache_file);
+            let writer = BufWriter::new(file_handler.expect("Cannot fail, because for saving, this always exists"));
+            let options = bincode::DefaultOptions::new().with_limit(MEMORY_LIMIT);
+            if let Err(e) = options.serialize_into(writer, &hashmap_to_save) {
+                text_messages.warnings.push(format!("Cannot write data to cache file {cache_file:?}, reason {e}"));
+                debug!("Failed to save cache to file {cache_file:?} - {e}");
                 return text_messages;
             }
-            debug!("Saved binary to file {:?}", cache_file);
+            debug!("Saved cache to binary file {cache_file:?} with size {}", get_cache_size(&cache_file));
         }
         if save_also_as_json {
             if let Some(file_handler_json) = file_handler_json {
                 let writer = BufWriter::new(file_handler_json);
                 if let Err(e) = serde_json::to_writer(writer, &hashmap_to_save) {
-                    text_messages
-                        .warnings
-                        .push(format!("Cannot write data to cache file {}, reason {}", cache_file_json.display(), e));
-                    debug!("Failed to save cache to file {:?}", cache_file_json);
+                    text_messages.warnings.push(format!("Cannot write data to cache file {cache_file_json:?}, reason {e}"));
+                    debug!("Failed to save cache to file {cache_file_json:?} - {e}");
                     return text_messages;
                 }
-                debug!("Saved json to file {:?}", cache_file_json);
+                debug!("Saved cache to json file {cache_file_json:?} with size {}", get_cache_size(&cache_file_json));
             }
         }
 
@@ -85,12 +101,42 @@ where
     text_messages
 }
 
+pub fn extract_loaded_cache<T>(
+    loaded_hash_map: &BTreeMap<String, T>,
+    files_to_check: BTreeMap<String, T>,
+    records_already_cached: &mut BTreeMap<String, T>,
+    non_cached_files_to_check: &mut BTreeMap<String, T>,
+) where
+    T: Clone,
+{
+    for (name, file_entry) in files_to_check {
+        if let Some(cached_file_entry) = loaded_hash_map.get(&name) {
+            records_already_cached.insert(name, cached_file_entry.clone());
+        } else {
+            non_cached_files_to_check.insert(name, file_entry);
+        }
+    }
+}
+
 #[fun_time(message = "load_cache_from_file_generalized_by_path", level = "debug")]
 pub fn load_cache_from_file_generalized_by_path<T>(cache_file_name: &str, delete_outdated_cache: bool, used_files: &BTreeMap<String, T>) -> (Messages, Option<BTreeMap<String, T>>)
 where
     for<'a> T: Deserialize<'a> + ResultEntry + Sized + Send + Sync + Clone,
 {
-    let (text_messages, vec_loaded_cache) = load_cache_from_file_generalized(cache_file_name, delete_outdated_cache, used_files);
+    let check_file = |file_entry: &T| {
+        let file_entry_path_str = file_entry.get_path().to_string_lossy();
+        if let Some(used_file) = used_files.get(file_entry_path_str.as_ref()) {
+            if file_entry.get_size() != used_file.get_size() {
+                return false;
+            }
+            if file_entry.get_modified_date() != used_file.get_modified_date() {
+                return false;
+            }
+        }
+        true
+    };
+
+    let (text_messages, vec_loaded_cache) = load_cache_from_file_generalized(cache_file_name, delete_outdated_cache, check_file);
     let Some(vec_loaded_entries) = vec_loaded_cache else {
         return (text_messages, None);
     };
@@ -114,14 +160,30 @@ pub fn load_cache_from_file_generalized_by_size<T>(
 where
     for<'a> T: Deserialize<'a> + ResultEntry + Sized + Send + Sync + Clone,
 {
-    debug!("Converting cache BtreeMap<u64, Vec<T>> into BTreeMap<String, T>");
-    let mut used_files: BTreeMap<String, T> = Default::default();
-    for file_entry in cache_not_converted.values().flatten() {
-        used_files.insert(file_entry.get_path().to_string_lossy().into_owned(), file_entry.clone());
-    }
-    debug!("Converted cache BtreeMap<u64, Vec<T>> into BTreeMap<String, T>");
+    debug!("Converting cache BtreeMap<u64, Vec<T>> into HashMap<String, (u64, u64)>");
+    let used_files: HashMap<String, (u64, u64)> = cache_not_converted
+        .iter()
+        .flat_map(|(size, vec)| {
+            vec.iter()
+                .map(move |file_entry| (file_entry.get_path().to_string_lossy().into_owned(), (*size, file_entry.get_modified_date())))
+        })
+        .collect();
+    debug!("Converted cache BtreeMap<u64, Vec<T>> into HashMap<String, (u64, u64)>");
 
-    let (text_messages, vec_loaded_cache) = load_cache_from_file_generalized(cache_file_name, delete_outdated_cache, &used_files);
+    let check_file = |file_entry: &T| {
+        let file_entry_path_str = file_entry.get_path().to_string_lossy();
+        if let Some((size, modification_date)) = used_files.get(file_entry_path_str.as_ref()) {
+            if file_entry.get_size() != *size {
+                return false;
+            }
+            if file_entry.get_modified_date() != *modification_date {
+                return false;
+            }
+        }
+        true
+    };
+
+    let (text_messages, vec_loaded_cache) = load_cache_from_file_generalized(cache_file_name, delete_outdated_cache, check_file);
     let Some(vec_loaded_entries) = vec_loaded_cache else {
         return (text_messages, None);
     };
@@ -136,93 +198,56 @@ where
     (text_messages, Some(map_loaded_entries))
 }
 
-#[fun_time(message = "load_cache_from_file_generalized_by_path_from_size", level = "debug")]
-pub fn load_cache_from_file_generalized_by_path_from_size<T>(
-    cache_file_name: &str,
-    delete_outdated_cache: bool,
-    cache_not_converted: &BTreeMap<u64, Vec<T>>,
-) -> (Messages, Option<BTreeMap<String, T>>)
-where
-    for<'a> T: Deserialize<'a> + ResultEntry + Sized + Send + Sync + Clone,
-{
-    debug!("Converting cache BtreeMap<u64, Vec<T>> into BTreeMap<String, T>");
-    let mut used_files: BTreeMap<String, T> = Default::default();
-    for file_entry in cache_not_converted.values().flatten() {
-        used_files.insert(file_entry.get_path().to_string_lossy().into_owned(), file_entry.clone());
-    }
-    debug!("Converted cache BtreeMap<u64, Vec<T>> into BTreeMap<String, T>");
-
-    let (text_messages, vec_loaded_cache) = load_cache_from_file_generalized(cache_file_name, delete_outdated_cache, &used_files);
-    let Some(vec_loaded_entries) = vec_loaded_cache else {
-        return (text_messages, None);
-    };
-
-    debug!("Converting cache Vec<T> into BTreeMap<String, T>");
-    let map_loaded_entries: BTreeMap<String, T> = vec_loaded_entries
-        .into_iter()
-        .map(|file_entry| (file_entry.get_path().to_string_lossy().into_owned(), file_entry))
-        .collect();
-    debug!("Converted cache Vec<T> into BTreeMap<String, T>");
-
-    (text_messages, Some(map_loaded_entries))
-}
-
 #[fun_time(message = "load_cache_from_file_generalized", level = "debug")]
-fn load_cache_from_file_generalized<T>(cache_file_name: &str, delete_outdated_cache: bool, used_files: &BTreeMap<String, T>) -> (Messages, Option<Vec<T>>)
+fn load_cache_from_file_generalized<T, F>(cache_file_name: &str, delete_outdated_cache: bool, check_func: F) -> (Messages, Option<Vec<T>>)
 where
     for<'a> T: Deserialize<'a> + ResultEntry + Sized + Send + Sync + Clone,
+    F: Fn(&T) -> bool + Send + Sync,
 {
     let mut text_messages = Messages::new();
 
     if let Some(((file_handler, cache_file), (file_handler_json, cache_file_json))) = common::open_cache_folder(cache_file_name, false, true, &mut text_messages.warnings) {
+        let cache_full_name;
         let mut vec_loaded_entries: Vec<T>;
         if let Some(file_handler) = file_handler {
+            cache_full_name = cache_file.clone();
             let reader = BufReader::new(file_handler);
 
-            vec_loaded_entries = match bincode::deserialize_from(reader) {
+            let options = bincode::DefaultOptions::new().with_limit(MEMORY_LIMIT);
+            vec_loaded_entries = match options.deserialize_from(reader) {
                 Ok(t) => t,
                 Err(e) => {
-                    text_messages
-                        .warnings
-                        .push(format!("Failed to load data from cache file {}, reason {}", cache_file.display(), e));
-                    debug!("Failed to load cache from file {:?}", cache_file);
+                    text_messages.warnings.push(format!("Failed to load data from cache file {cache_file:?}, reason {e}"));
+                    error!("Failed to load cache from file {cache_file:?} - {e}");
                     return (text_messages, None);
                 }
             };
         } else {
-            let reader = BufReader::new(file_handler_json.unwrap()); // Unwrap cannot fail, because at least one file must be valid
+            cache_full_name = cache_file_json.clone();
+            let reader = BufReader::new(file_handler_json.expect("This cannot fail, because if file_handler is None, then this cannot be None"));
             vec_loaded_entries = match serde_json::from_reader(reader) {
                 Ok(t) => t,
                 Err(e) => {
                     text_messages
                         .warnings
-                        .push(format!("Failed to load data from cache file {}, reason {}", cache_file_json.display(), e));
-                    debug!("Failed to load cache from file {:?}", cache_file);
+                        .push(format!("Failed to load data from json cache file {cache_file_json:?}, reason {e}"));
+                    debug!("Failed to load cache from file {cache_file:?} - {e}");
                     return (text_messages, None);
                 }
             };
         }
 
-        debug!(
-            "Starting removing outdated cache entries (removing non existent files from cache - {})",
-            delete_outdated_cache
-        );
+        debug!("Starting removing outdated cache entries (removing non existent files from cache - {delete_outdated_cache})");
         let initial_number_of_entries = vec_loaded_entries.len();
         vec_loaded_entries = vec_loaded_entries
             .into_par_iter()
             .filter(|file_entry| {
-                if delete_outdated_cache && !file_entry.get_path().exists() {
+                if !check_func(file_entry) {
                     return false;
                 }
 
-                let file_entry_path_str = file_entry.get_path().to_string_lossy().to_string();
-                if let Some(used_file) = used_files.get(&file_entry_path_str) {
-                    if file_entry.get_size() != used_file.get_size() {
-                        return false;
-                    }
-                    if file_entry.get_modified_date() != used_file.get_modified_date() {
-                        return false;
-                    }
+                if delete_outdated_cache && !file_entry.get_path().exists() {
+                    return false;
                 }
 
                 true
@@ -236,7 +261,11 @@ where
 
         text_messages.messages.push(format!("Properly loaded {} cache entries.", vec_loaded_entries.len()));
 
-        debug!("Loaded cache from file {cache_file_name} (or json alternative) - {} results", vec_loaded_entries.len());
+        debug!(
+            "Loaded cache from file {cache_file_name} (or json alternative) - {} results - size {}",
+            vec_loaded_entries.len(),
+            get_cache_size(&cache_full_name)
+        );
         return (text_messages, Some(vec_loaded_entries));
     }
     debug!("Failed to load cache from file {cache_file_name} because not exists");

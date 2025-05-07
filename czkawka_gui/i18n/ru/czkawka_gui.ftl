@@ -18,6 +18,11 @@ music_checking_by_tags = Теги
 music_checking_by_content = Содержание
 same_music_seconds_label = Минимальная длительность второго фрагмента
 same_music_similarity_label = Максимальная разница
+music_compare_only_in_title_group = Сравнить только в заголовке
+music_compare_only_in_title_group_tooltip =
+    Когда включено, файлы сгруппируются по заголовку, а затем сравниваются друг с другом.
+    
+    С 10000 файлов, вместо этого почти 100 миллионов сравнений обычно будет около 20000 сравнений.
 same_music_tooltip =
     Поиск похожих музыкальных файлов по его содержимому может быть настроен с помощью настройки:
     
@@ -60,21 +65,21 @@ duplicate_check_method_tooltip =
     
     Хэш — ищет файлы с одинаковым содержимым. Этот режим хэширует файл, а затем сравнивает хэш для поиска дубликатов. Этот режим является самым надёжным способом поиска. Приложение активно использует кэш, поэтому второе и последующие сканирования одних и тех же данных должны быть намного быстрее, чем первое.
 image_hash_size_tooltip =
-    Каждый проверяемый образ создает специальный хэш, который можно сравнить друг с другом, и небольшая разница между ними означает, что эти изображения похожи.
+    Каждое проверяемое изображение производит специальный хэш, который можно сравнить друг с другом, и небольшая разница между ними означает, что эти изображения аналогичны.
     
-    8 хэшей размера достаточно хорошо, чтобы найти изображения, которые мало похожи на оригинал. С большим набором изображений (>1000) будет производиться большое количество ложных срабатываний, поэтому я рекомендую использовать такое количество размеров.
+    8 размер хэша достаточно хорош, чтобы найти изображения, которые немного похожи на оригинал. С большим набором изображений (>1000), это приведет к большому количеству ложных срабатываний, поэтому в данном случае я рекомендую использовать больший размер хэша.
     
-    16 — это размер хэша по умолчанию, который является очень хорошим компромиссом между поиском даже небольшого размера похожих изображений и небольшим количеством хэш-коллизий.
+    16 - это размер хэша по умолчанию, который является хорошим компромиссом между нахождением даже немного похожих изображений и наличием лишь небольшого количества хэш-коллизий.
     
-    32 и 64 хэши находят только очень похожие изображения, но у них почти не должно быть ложных положительных (может быть, за исключением некоторых изображений с альфа-каналом).
+    32 и 64 хэши находят только очень похожие изображения, но не должны иметь ложных срабатываний (может быть, за исключением некоторых изображений с альфа-каналом).
 image_resize_filter_tooltip =
-    Чтобы вычислить хэш изображения, библиотека должна в первую очередь изменить его размеры.
+    Чтобы вычислить хэш изображения, библиотека должна сначала его перемасштабировать.
     
-    В зависимости от выбранного алгоритма результирующее изображение, используемое для вычисления хэша, может выглядеть немного по-разному.
+    В зависимости от выбранного алгоритма полученное изображение, используемое при хэшировании, может выглядеть немного другим.
     
-    Самый быстрый алгоритм использования, но также тот алгоритм, который дает худший результат, это Nearest, включен по умолчанию, потому что с размером 16x16 хэш, более низкое качество не отображается.
+    Самый быстрый алгоритм с низким качеством — это метод ближайших соседей, Nearest. Он включён по умолчанию, потому при размере хэша 16x16 плохое качество не замечается.
     
-    С размером 8x8 рекомендуется использовать алгоритм отличный от Nearest, чтобы иметь лучшие группы изображений.
+    Если размер хэша 8x8, рекомендуется любой алгоритм, кроме Nearest, чтобы лучше отличать похожие изображения в группах.
 image_hash_alg_tooltip =
     Пользователи могут выбрать один из многих алгоритмов вычисления хэша.
     
@@ -129,7 +134,7 @@ main_check_box_broken_files_pdf = Pdf
 main_check_box_broken_files_archive = Архивировать
 main_check_box_broken_files_image = Изображение
 check_button_general_same_size = Игнорировать одинаковый размер
-check_button_general_same_size_tooltip = Игнорировать в результатах файлы, имеющие одинаковый размер: обычно это точные дубликаты
+check_button_general_same_size_tooltip = Игнорировать файлы с одинаковым размером в результатах - обычно это 1:1 дубликаты
 main_label_size_bytes_tooltip = Размер файлов, которые будут просканированы
 # Upper window
 upper_tree_view_included_folder_column_title = Папки для поиска
@@ -167,11 +172,16 @@ upper_allowed_extensions_tooltip =
     Макросы IMAGE, VIDEO, MUSIC, TEXT добавляют сразу несколько расширений.
         
     Пример использования: «.exe, IMAGE, VIDEO, .rar, 7z» — это означает, что будут сканироваться файлы изображений (напр. jpg, png), видео (напр. avi, mp4), exe, rar и 7z.
+upper_excluded_extensions_tooltip =
+    Список отключенных файлов, которые будут игнорироваться в сканировании.
+    
+    При использовании разрешенных и отключенных расширений этот файл имеет более высокий приоритет, поэтому файл не будет проверяться.
 upper_excluded_items_tooltip =
     Исключаемые элементы должны содержать маску «*» и быть разделены запятыми.
     Это медленнее, чем «Исключённые каталоги», поэтому используйте осторожно.
 upper_excluded_items = Исключённые элементы:
 upper_allowed_extensions = Допустимые расширения:
+upper_excluded_extensions = Отключенные расширения:
 # Popovers
 popover_select_all = Выбрать все
 popover_unselect_all = Снять выделение
@@ -236,6 +246,7 @@ bottom_symlink_button = Симв. ссылка
 bottom_hardlink_button = Жёст. ссылка
 bottom_move_button = Переместить
 bottom_sort_button = Сортировать
+bottom_compare_button = Сравнить
 bottom_search_button_tooltip = Начать поиск
 bottom_select_button_tooltip = Выберите записи. Только выбранные файлы/папки будут доступны для последующей обработки.
 bottom_delete_button_tooltip = Удалить выбранные файлы/папки.
@@ -258,6 +269,7 @@ bottom_move_button_tooltip =
     Копирует все файлы в папку без сохранения структуры дерева каталогов.
     При попытке переместить два файла с одинаковым именем в одну и ту же папку второй не будет перемещён и появится сообщение об ошибке.
 bottom_sort_button_tooltip = Сортировка файлов/папок по выбранному методу.
+bottom_compare_button_tooltip = Сравнить изображения в группе.
 bottom_show_errors_tooltip = Показать/скрыть нижнюю текстовую панель.
 bottom_show_upper_notebook_tooltip = Показать/скрыть верхнюю панель блокнота.
 # Progress Window
@@ -281,8 +293,15 @@ header_about_button_tooltip = Открыть окно с информацией 
 
 ## General
 
-settings_number_of_threads = Количество использованных тем
-settings_number_of_threads_tooltip = Количество используемых потоков, 0 означает, что будут использоваться все доступные потоки.
+settings_number_of_threads = Количество использованных потоков
+settings_number_of_threads_tooltip = Количество используемых потоков. Установите 0, чтобы использовать все доступные потоки.
+settings_use_rust_preview = Использовать внешние библиотеки вместо gtk для загрузки предпросмотра
+settings_use_rust_preview_tooltip =
+    Использование превью gtk иногда будет быстрее и поддерживать больше форматов, но иногда это может быть и наоборот.
+    
+    Если у вас возникли проблемы с загрузкой предпросмотра, вы можете попробовать изменить эту настройку.
+    
+    На не-linux системах рекомендуется использовать эту опцию, потому что gtk-pixbuf не всегда доступен там, поэтому отключение этой опции не будет загружать превью некоторых изображений.
 settings_label_restart = Вам нужно перезапустить приложение, чтобы применить настройки!
 settings_ignore_other_filesystems = Игнорировать другие файловые системы (только Linux)
 settings_ignore_other_filesystems_tooltip =
@@ -333,7 +352,7 @@ settings_multiple_image_preview_checkbutton = Показывать предпр�
 settings_multiple_clear_cache_button_tooltip =
     Очистка устаревших записей кэша вручную.
     Следует использовать только в том случае, если автоматическая очистка отключена.
-settings_multiple_clear_cache_button = Удалить устаревшие результаты из кэша изображений
+settings_multiple_clear_cache_button = Удалить устаревшие результаты из кэша.
 
 ## Duplicates
 
@@ -397,22 +416,36 @@ compute_found_invalid_symlinks = Найдено битых символьных 
 compute_found_broken_files = Найдено битых файлов: { $number_files }
 compute_found_bad_extensions = Найдено { $number_files } файлов с недопустимыми расширениями
 # Progress window
-progress_scanning_general_file = Сканирование файла: { $file_number }
-progress_scanning_extension_of_files = Проверка расширения { $file_checked }/{ $all_files } файла
-progress_scanning_broken_files = Проверка файла: { $file_checked }/{ $all_files }
-progress_scanning_video = Хэширование видео: { $file_checked }/{ $all_files }
-progress_scanning_image = Хэширование изображения: { $file_checked }/{ $all_files }
-progress_comparing_image_hashes = Сравнение хэша изображений: { $file_checked }/{ $all_files }
-progress_scanning_music_tags_end = Сравнение тегов { $file_checked }/{ $all_files } музыкального файла
-progress_scanning_music_tags = Чтение тэгов музыкальных файлов: { $file_checked }/{ $all_files }
-progress_scanning_music_content_end = Сравнение отпечатка пальца из { $file_checked }/{ $all_files } музыкального файла
-progress_scanning_music_content = Вычисление отпечатка пальца из { $file_checked }/{ $all_files } музыкального файла
-progress_scanning_empty_folders = Сканирование папки { $folder_number }
-progress_scanning_size = Сканирование размера файла { $file_number }
-progress_scanning_size_name = Сканирование имени и размера файла { $file_number }
-progress_scanning_name = Сканирование имени файла { $file_number }
-progress_analyzed_partial_hash = Анализ частичного хэша файла { $file_checked }/{ $all_files }
-progress_analyzed_full_hash = Анализ полного хэша файла { $file_checked }/{ $all_files }
+progress_scanning_general_file =
+    { $file_number ->
+        [one] Просканирован { $file_number } файл
+       *[other] Просканированы { $file_number } файлов
+    }
+progress_scanning_extension_of_files = Проверено расширение { $file_checked }/{ $all_files } файла
+progress_scanning_broken_files = Проверено { $file_checked }/{ $all_files } файл ({ $data_checked }/{ $all_data })
+progress_scanning_video = Хэш { $file_checked }/{ $all_files } видео
+progress_scanning_image = Хэш { $file_checked }/{ $all_files } изображения ({ $data_checked }/{ $all_data })
+progress_comparing_image_hashes = Хэш изображений по сравнению { $file_checked }/{ $all_files }
+progress_scanning_music_tags_end = По сравнению тегов музыкального файла { $file_checked }/{ $all_files }
+progress_scanning_music_tags = Чтение тегов { $file_checked }/{ $all_files } музыкального файла
+progress_scanning_music_content_end = По сравнению с музыкальным файлом { $file_checked }/{ $all_files }
+progress_scanning_music_content = Вычисляется отпечаток звука { $file_checked }/{ $all_files } ({ $data_checked }/{ $all_data })
+progress_scanning_empty_folders =
+    { $folder_number ->
+        [one] Просканирована { $folder_number } папка
+       *[other] Просканированы { $folder_number } папок
+    }
+progress_scanning_size = Отсканированный размер файла { $file_number }
+progress_scanning_size_name = Отсканированное имя и размер файла { $file_number }
+progress_scanning_name = Отсканированное имя файла { $file_number }
+progress_analyzed_partial_hash = Частичный хэш { $file_checked }/{ $all_files } файлов ({ $data_checked }/{ $all_data })
+progress_analyzed_full_hash = Полный хэш { $file_checked }/{ $all_files } файлов ({ $data_checked }/{ $all_data })
+progress_prehash_cache_loading = Загрузка кэша prehash
+progress_prehash_cache_saving = Сохранение кэша prehash
+progress_hash_cache_loading = Загрузка хеш-кэша
+progress_hash_cache_saving = Сохранение хэша
+progress_cache_loading = Загрузка кэша
+progress_cache_saving = Сохранение кэша
 progress_current_stage = Текущий этап:{ " " }
 progress_all_stages = Все этапы:{ " " }
 # Saving loading 
@@ -444,7 +477,7 @@ text_view_warnings = ПРЕДУПРЕЖДЕНИЯ
 text_view_errors = ОШИБКИ
 about_window_motto = Эта программа бесплатна для использования и всегда будет оставаться таковой.
 # Various dialog
-dialogs_ask_next_time = Спросить в следующий раз
+dialogs_ask_next_time = Всегда спрашивать
 delete_file_failed = Не удалось удалить файл { $name }. Причина: { $reason }
 delete_title_dialog = Подтверждение удаления
 delete_question_label = Вы уверены, что хотите удалить файлы?
@@ -466,7 +499,7 @@ move_file_failed = Не удалось переместить файл { $name }
 move_files_title_dialog = Выберите папку, в которую вы хотите переместить дублирующиеся файлы
 move_files_choose_more_than_1_path = Можно выбрать только один путь для копирования дубликатов файлов, но выбрано { $path_number }.
 move_stats = Удалось переместить без ошибок элементов: { $num_files }/{ $all_files }
-save_results_to_file = Результаты сохранены в файл { $name }
+save_results_to_file = Результаты сохранены в txt и json файлах в папке { $name }.
 search_not_choosing_any_music = ОШИБКА: Необходимо выбрать как минимум один флажок с типами поиска музыки.
 search_not_choosing_any_broken_files = ОШИБКА: Вы должны выбрать хотя бы один флажок с типом проверенных ошибочных файлов.
 include_folders_dialog_title = Папки для включения

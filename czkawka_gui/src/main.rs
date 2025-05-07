@@ -4,17 +4,13 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 #![allow(clippy::needless_late_init)]
+#![warn(clippy::unwrap_used)]
+#![warn(clippy::print_stderr)]
+#![warn(clippy::print_stdout)]
+#![warn(clippy::dbg_macro)]
 
 use std::env;
 use std::ffi::OsString;
-
-use futures::channel::mpsc;
-use futures::channel::mpsc::{UnboundedReceiver, UnboundedSender};
-use glib::Priority;
-use gtk4::gio::ApplicationFlags;
-use gtk4::prelude::*;
-use gtk4::Application;
-use log::info;
 
 use connect_things::connect_about_buttons::*;
 use connect_things::connect_button_compare::*;
@@ -34,10 +30,15 @@ use connect_things::connect_selection_of_directories::*;
 use connect_things::connect_settings::*;
 use connect_things::connect_show_hide_ui::*;
 use connect_things::connect_similar_image_size_change::*;
-use czkawka_core::common::{get_number_of_threads, print_version_mode, set_number_of_threads, setup_logger};
-use czkawka_core::common_dir_traversal::ProgressData;
+use crossbeam_channel::{Receiver, Sender, unbounded};
+use czkawka_core::common::{get_number_of_threads, print_infos_and_warnings, print_version_mode, set_config_cache_path, set_number_of_threads, setup_logger};
+use czkawka_core::progress_data::ProgressData;
 use czkawka_core::*;
+use gtk4::Application;
+use gtk4::gio::ApplicationFlags;
+use gtk4::prelude::*;
 use gui_structs::gui_data::*;
+use log::info;
 
 use crate::compute_results::*;
 use crate::connect_things::connect_button_sort::connect_button_sort;
@@ -71,9 +72,16 @@ mod tests;
 
 fn main() {
     let application = Application::new(None::<String>, ApplicationFlags::HANDLES_OPEN | ApplicationFlags::HANDLES_COMMAND_LINE);
+
+    #[cfg(target_os = "linux")]
+    glib::set_prgname(Some("com.github.qarmin.czkawka"));
+
     application.connect_command_line(move |app, cmdline| {
-        setup_logger(false);
-        print_version_mode();
+        let (infos, warnings) = set_config_cache_path("Czkawka", "Czkawka");
+        setup_logger(false, "czkawka_gui");
+        print_version_mode("Czkawka gtk");
+        print_infos_and_warnings(infos, warnings);
+
         build_ui(app, &cmdline.arguments());
         0
     });
@@ -83,11 +91,10 @@ fn main() {
 fn build_ui(application: &Application, arguments: &[OsString]) {
     let gui_data: GuiData = GuiData::new_with_application(application);
 
-    // Used for getting data from thread
-    let (glib_stop_sender, glib_stop_receiver) = glib::MainContext::channel(Priority::default());
+    let (result_sender, result_receiver) = unbounded();
 
     // Futures progress report
-    let (progress_sender, progress_receiver): (UnboundedSender<ProgressData>, UnboundedReceiver<ProgressData>) = mpsc::unbounded();
+    let (progress_sender, progress_receiver): (Sender<ProgressData>, Receiver<ProgressData>) = unbounded();
 
     initialize_gui(&gui_data);
     validate_notebook_data(&gui_data); // Must be run after initialization of gui, to check if everything was properly setup
@@ -110,7 +117,7 @@ fn build_ui(application: &Application, arguments: &[OsString]) {
 
     connect_button_delete(&gui_data);
     connect_button_save(&gui_data);
-    connect_button_search(&gui_data, glib_stop_sender, progress_sender);
+    connect_button_search(&gui_data, result_sender, progress_sender);
     connect_button_select(&gui_data);
     connect_button_sort(&gui_data);
     connect_button_stop(&gui_data);
@@ -123,7 +130,7 @@ fn build_ui(application: &Application, arguments: &[OsString]) {
     connect_selection_of_directories(&gui_data);
     connect_popover_select(&gui_data);
     connect_popover_sort(&gui_data);
-    connect_compute_results(&gui_data, glib_stop_receiver);
+    connect_compute_results(&gui_data, result_receiver);
     connect_progress_window(&gui_data, progress_receiver);
     connect_show_hide_ui(&gui_data);
     connect_settings(&gui_data);

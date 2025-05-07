@@ -1,8 +1,9 @@
-use fun_time::fun_time;
-use serde::Serialize;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
+
+use fun_time::fun_time;
+use serde::Serialize;
 
 pub trait DebugPrint {
     fn debug_print(&self);
@@ -15,8 +16,9 @@ pub trait PrintResults {
     fn print_results_to_output(&self) {
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        self.write_results(&mut handle).unwrap();
-        handle.flush().unwrap();
+        // Panics here are allowed, because it is used only in CLI
+        self.write_results(&mut handle).expect("Error while writing to stdout");
+        handle.flush().expect("Error while flushing stdout");
     }
 
     #[fun_time(message = "print_results_to_file", level = "debug")]
@@ -35,7 +37,7 @@ pub trait PrintResults {
 
     fn save_results_to_file_as_json(&self, file_name: &str, pretty_print: bool) -> std::io::Result<()>;
 
-    fn save_results_to_file_as_json_internal<T: Serialize>(&self, file_name: &str, item_to_serialize: &T, pretty_print: bool) -> std::io::Result<()> {
+    fn save_results_to_file_as_json_internal<T: Serialize + std::fmt::Debug>(&self, file_name: &str, item_to_serialize: &T, pretty_print: bool) -> std::io::Result<()> {
         if pretty_print {
             self.save_results_to_file_as_json_pretty(file_name, item_to_serialize)
         } else {
@@ -44,7 +46,7 @@ pub trait PrintResults {
     }
 
     #[fun_time(message = "save_results_to_file_as_json_pretty", level = "debug")]
-    fn save_results_to_file_as_json_pretty<T: Serialize>(&self, file_name: &str, item_to_serialize: &T) -> std::io::Result<()> {
+    fn save_results_to_file_as_json_pretty<T: Serialize + std::fmt::Debug>(&self, file_name: &str, item_to_serialize: &T) -> std::io::Result<()> {
         let file_handler = File::create(file_name)?;
         let mut writer = BufWriter::new(file_handler);
         serde_json::to_writer_pretty(&mut writer, item_to_serialize)?;
@@ -52,17 +54,20 @@ pub trait PrintResults {
     }
 
     #[fun_time(message = "save_results_to_file_as_json_compact", level = "debug")]
-    fn save_results_to_file_as_json_compact<T: Serialize>(&self, file_name: &str, item_to_serialize: &T) -> std::io::Result<()> {
+    fn save_results_to_file_as_json_compact<T: Serialize + std::fmt::Debug>(&self, file_name: &str, item_to_serialize: &T) -> std::io::Result<()> {
         let file_handler = File::create(file_name)?;
         let mut writer = BufWriter::new(file_handler);
         serde_json::to_writer(&mut writer, item_to_serialize)?;
         Ok(())
     }
 
-    fn save_all_in_one(&self, file_name: &str) -> std::io::Result<()> {
-        self.save_results_to_file_as_json(&format!("{file_name}_pretty.json"), true)?;
-        self.save_results_to_file_as_json(&format!("{file_name}_compact.json"), false)?;
-        self.print_results_to_file(&format!("{file_name}.txt"))?;
+    fn save_all_in_one(&self, folder: &str, base_file_name: &str) -> std::io::Result<()> {
+        let pretty_name = format!("{folder}/{base_file_name}_pretty.json");
+        self.save_results_to_file_as_json(&pretty_name, true)?;
+        let compact_name = format!("{folder}/{base_file_name}_compact.json");
+        self.save_results_to_file_as_json(&compact_name, false)?;
+        let txt_name = format!("{folder}/{base_file_name}.txt");
+        self.print_results_to_file(&txt_name)?;
         Ok(())
     }
 }

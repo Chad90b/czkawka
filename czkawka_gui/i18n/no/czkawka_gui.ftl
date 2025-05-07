@@ -18,6 +18,11 @@ music_checking_by_tags = Tagger
 music_checking_by_content = Innhold
 same_music_seconds_label = Minste fragment andre varighet
 same_music_similarity_label = Maksimal differanse
+music_compare_only_in_title_group = Sammenlign bare i tittel
+music_compare_only_in_title_group_tooltip =
+    Når aktivert, blir filer gruppert etter tittel og sammenlignes med hverandre.
+    
+    Med 10000 filer, vil det i stedet være nesten 100 millioner sammenligninger som regel være rundt 20000 sammenligninger.
 same_music_tooltip =
     Søker etter lignende musikkfiler av innholdet kan konfigureres ved å gå inn:
     
@@ -60,21 +65,21 @@ duplicate_check_method_tooltip =
     
     Hash - Finner filer med samme innhold. Denne modusen ligner filen og senere sammenligner dette hashen for å finne duplikater. Denne modusen er den sikreste måten å finne duplikater. Appen bruker stort, så sekund og ytterligere skanninger av de samme dataene bør være mye raskere enn det første.
 image_hash_size_tooltip =
-    Hvert avmerket bilde produserer spesielle hash som kan sammenlignes med hverandre, og en liten forskjell mellom dem betyr at dette bildet er likt.
+    Hvert avmerkede bilde gir en spesiell hash som kan sammenlignes med hverandre, og en liten forskjell mellom dem betyr at disse bildene er like.
     
-    8 hash-størrelse er ganske bra for å finne bilder som er lite likt original. Med et større sett med bilder(>1000) vil jeg gi store mengder falske positive, så jeg anbefaler å bruke for så mye større hash-størrelse.
+    8 hash-størrelse er ganske bra for å finne bilder som er litt likt original. Med et større sett med bilder (>1000) vil dette gi svært mange falske positive. Derfor anbefaler jeg å bruke en større hash-størrelse i denne saken.
     
-    16 er standard hash-størrelse som er ganske godt kompromiss mellom å finne enda litt lignende bilder og å ha en liten mengde hash-kollisjoner.
+    16 er standard hash-størrelse som er et godt kompromiss mellom å finne selv små lignende bilder og å ha bare en liten mengde hash-kollisjoner.
     
-    32 og 64 hashes finner bare lignende bilder, men nesten bør ikke ha falske positive positive (kanskje unntatt bilder med alfa-kanal).
+    32 og 64 hashes finner bare lignende bilder, men bør ha nesten ingen falske positiver (kanskje unntatt bilder med alfa-kanal).
 image_resize_filter_tooltip =
-    For å beregne hash av bildet må biblioteket først endre størrelsen på det.
+    To compute hash of image, the library must first resize it.
     
-    Avhengig av valgt algoritme, resulterte et bilde som brukes til å beregne hash, kan det være lite annerledes.
+    Depend on chosen algorithm, the resulting image used to calculate hash will looks a little different.
     
-    Den raskeste algoritmen som skal brukes, men også som gir de verste resultatene, er Nearest, den er aktivert som standard fordi den ikke er synlig med 16x16 hash-størrelse, lavere kvalitet.
+    The fastest algorithm to use, but also the one which gives the worst results, is Nearest. It is enabled by default, because with 16x16 hash size lower quality it is not really visible.
     
-    Med 8x8 hash størrelse anbefales det å bruke annen algoritme enn Nearest, for å ha bedre grupper av bilder.
+    With 8x8 hash size it is recommended to use a different algorithm than Nearest, to have better groups of images.
 image_hash_alg_tooltip =
     Brukere kan velge mellom en av mange algoritmer i beregningen av hashen.
     
@@ -129,7 +134,7 @@ main_check_box_broken_files_pdf = Pdf
 main_check_box_broken_files_archive = Arkiv
 main_check_box_broken_files_image = Bilde
 check_button_general_same_size = Ignorer samme størrelse
-check_button_general_same_size_tooltip = Ignorer fra resultatene, filer som har identisk størrelse - vanligvis dette er 1:1 duplikater
+check_button_general_same_size_tooltip = Ignorer filer med identisk størrelse i resultater - vanligvis disse er 1:1 duplikater
 main_label_size_bytes_tooltip = Størrelse på filer som vil bli brukt i skanning
 # Upper window
 upper_tree_view_included_folder_column_title = Mapper å søke etter
@@ -167,11 +172,16 @@ upper_allowed_extensions_tooltip =
     Følgende makroer, som legger til flere utvidelser samtidig, er også tilgjengelige: IMAGE, VIDEO, MUSIC, TEXT.
     
     Bruk eksempel ".exe, IMAGE, VIDEO, .rar, 7z" - dette betyr at bilder (e. . jpg, png), videoer (f.eks. avi, mp4), exe, rar og 7z filer vil bli skannet.
+upper_excluded_extensions_tooltip =
+    Liste over deaktiverte filer som vil bli ignorert i skanning.
+    
+    Ved bruk av både tillatte og deaktiverte utvidelser, har denne prioriteten høyere enn prioritet, så filen vil ikke bli sjekket.
 upper_excluded_items_tooltip =
     Ekskluderte elementer må inneholde * jokertegn og bør separeres med komma.
     Dette er tregere enn ekskluderte kataloger, så bruk den med forsiktighet.
 upper_excluded_items = Ekskluderte elementer:
 upper_allowed_extensions = Tillatte utvidelser:
+upper_excluded_extensions = Deaktiverte utvidelser:
 # Popovers
 popover_select_all = Velg alle
 popover_unselect_all = Fjern alle valg
@@ -236,6 +246,7 @@ bottom_symlink_button = Symlink
 bottom_hardlink_button = Hardlink
 bottom_move_button = Flytt
 bottom_sort_button = Sorter
+bottom_compare_button = Sammenlign
 bottom_search_button_tooltip = Starte søk
 bottom_select_button_tooltip = Velg oppføringer. Bare valgte filer/mapper kan bli behandlet senere.
 bottom_delete_button_tooltip = Slett valgte filer/mapper.
@@ -258,6 +269,7 @@ bottom_move_button_tooltip =
     Den kopierer alle filer til mappen uten å lagre mappetreet.
     Når du prøver å flytte to filer med identisk navn til mappe, vil det andre feile og vise feil.
 bottom_sort_button_tooltip = Sorter filer/mapper etter valgt metode.
+bottom_compare_button_tooltip = Sammenlign bilder i gruppen.
 bottom_show_errors_tooltip = Vis/Skjul bunntekstpanelet.
 bottom_show_upper_notebook_tooltip = Vis/Skjul øvre notebook panel.
 # Progress Window
@@ -283,6 +295,13 @@ header_about_button_tooltip = Åpner dialog med info om app.
 
 settings_number_of_threads = Antall brukte tråder
 settings_number_of_threads_tooltip = Antall brukte tråder. 0 betyr at alle tilgjengelige tråder vil bli brukt.
+settings_use_rust_preview = Bruk eksterne biblioteker i stedet gtk for å laste forhåndsvisninger
+settings_use_rust_preview_tooltip =
+    Med gtk innledning vil noen ganger være raskere og støtte flere formater, men noen ganger kan dette være akkurat det motsatte.
+    
+    Hvis du har problemer med å laste forhåndsvisninger, kan du prøve å endre denne innstillingen.
+    
+    på ikke-linux-systemer anbefales det å bruke dette alternativet, fordi gtk-pixbuf ikke alltid finnes, slik at deaktivering av dette alternativet ikke vil laste forhåndsvisninger på noen bilder.
 settings_label_restart = Start programmet på nytt for å bruke innstillingene!
 settings_ignore_other_filesystems = Ignorer andre filsystemer (bare Linux)
 settings_ignore_other_filesystems_tooltip =
@@ -333,7 +352,7 @@ settings_multiple_image_preview_checkbutton = Vis forhåndsvisning av bilde
 settings_multiple_clear_cache_button_tooltip =
     Manuelt tømmer hurtigbufferen av utdaterte oppføringer.
     Dette bør bare brukes hvis automatisk tømming er deaktivert.
-settings_multiple_clear_cache_button = Fjern utdaterte resultater fra bilde-cache
+settings_multiple_clear_cache_button = Fjern utdaterte resultater fra mellomlager.
 
 ## Duplicates
 
@@ -397,22 +416,36 @@ compute_found_invalid_symlinks = Fant { $number_files } ugyldige symlinker
 compute_found_broken_files = Fant { $number_files } ødelagte filer
 compute_found_bad_extensions = Fant { $number_files } filer med ugyldige utvidelser
 # Progress window
-progress_scanning_general_file = Skanner { $file_number } fil
-progress_scanning_extension_of_files = Sjekker utvidelse av { $file_checked }/{ $all_files } fil
-progress_scanning_broken_files = Kontrollerer { $file_checked }/{ $all_files } fil
-progress_scanning_video = Hashing av { $file_checked }/{ $all_files } video
-progress_scanning_image = Hashing av { $file_checked }/{ $all_files } bilde
-progress_comparing_image_hashes = Sammenligner { $file_checked }/{ $all_files } bilde-hash
-progress_scanning_music_tags_end = Sammenligner tagger med { $file_checked }/{ $all_files } musikkfil
-progress_scanning_music_tags = Leser tagger på { $file_checked }/{ $all_files } musikkfil
-progress_scanning_music_content_end = Sammenligner fingeravtrykk på { $file_checked }/{ $all_files } musikkfil
-progress_scanning_music_content = Beregner fingeravtrykk på { $file_checked }/{ $all_files } musikkfil
-progress_scanning_empty_folders = Skanner { $folder_number } mappe
-progress_scanning_size = Skanner størrelse på { $file_number } fil
-progress_scanning_size_name = Skanning av navn og størrelse på { $file_number } fil
-progress_scanning_name = Skanning av navn på { $file_number } fil
-progress_analyzed_partial_hash = Analyserte delvis hash med { $file_checked }/{ $all_files } filer
-progress_analyzed_full_hash = Analyserte full hash med { $file_checked }/{ $all_files } filer
+progress_scanning_general_file =
+    { $file_number ->
+        [one] Skannet { $file_number } fil
+       *[other] Skannet { $file_number } filer
+    }
+progress_scanning_extension_of_files = Merket utvidelse av { $file_checked }/{ $all_files } -filen
+progress_scanning_broken_files = Merket { $file_checked }/{ $all_files } fil ({ $data_checked }/{ $all_data })
+progress_scanning_video = Kastet av { $file_checked }/{ $all_files } video
+progress_scanning_image = Kastet av { $file_checked }/{ $all_files } bilde ({ $data_checked }/{ $all_data })
+progress_comparing_image_hashes = Sammenlignet { $file_checked }/{ $all_files } bilde-hash
+progress_scanning_music_tags_end = Sammenligne tagger med { $file_checked }/{ $all_files } musikkfil
+progress_scanning_music_tags = Les tagger for { $file_checked }/{ $all_files } musikkfil
+progress_scanning_music_content_end = Sammenlignet fingeravtrykk av { $file_checked }/{ $all_files } musikkfil
+progress_scanning_music_content = Beregnet fingeravtrykk på { $file_checked }/{ $all_files } musikkfil ({ $data_checked }/{ $all_data })
+progress_scanning_empty_folders =
+    { $folder_number ->
+        [one] Skannet { $folder_number } mappe
+       *[other] Skannet { $folder_number } mapper
+    }
+progress_scanning_size = Skannet størrelse på { $file_number } fil
+progress_scanning_size_name = { $file_number } fil skannet navn og størrelse
+progress_scanning_name = { $file_number } fil skannet navn
+progress_analyzed_partial_hash = Analyserte delvis hash av { $file_checked }/{ $all_files } filer ({ $data_checked }/{ $all_data })
+progress_analyzed_full_hash = Analysert full hash av { $file_checked }/{ $all_files } filer ({ $data_checked }/{ $all_data })
+progress_prehash_cache_loading = Laster prehash cache
+progress_prehash_cache_saving = Lagrer prehash-cache
+progress_hash_cache_loading = Laster hash-cache
+progress_hash_cache_saving = Lagrer hurtigbufferen for hash
+progress_cache_loading = Laster cache
+progress_cache_saving = Lagrer cachen
 progress_current_stage = Gjeldende trinn: { " " }
 progress_all_stages = Alle stadier:{ " " }
 # Saving loading 
@@ -466,7 +499,7 @@ move_file_failed = Kunne ikke flytte filen { $name }, årsak { $reason }
 move_files_title_dialog = Velg mappen du vil flytte dupliserte filer til
 move_files_choose_more_than_1_path = Bare én sti kan velges for å kunne kopiere sine dupliserte filer, valgt { $path_number }.
 move_stats = Flott flyttet { $num_files }/{ $all_files } elementer
-save_results_to_file = Lagrede resultater i filen { $name }
+save_results_to_file = Lagrede resultater både i txt og json-filer i { $name } mappe.
 search_not_choosing_any_music = FEIL: Du må velge minst en avkrysningsboks med musikk som søker.
 search_not_choosing_any_broken_files = FEIL: Du må velge minst en avkrysningsboks med sjekket ødelagte filer.
 include_folders_dialog_title = Mapper å inkludere

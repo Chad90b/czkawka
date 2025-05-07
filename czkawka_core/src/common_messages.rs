@@ -9,6 +9,16 @@ impl Messages {
     pub fn new() -> Self {
         Default::default()
     }
+    pub fn new_from_errors(errors: Vec<String>) -> Self {
+        Self { errors, ..Default::default() }
+    }
+    pub fn new_from_warnings(warnings: Vec<String>) -> Self {
+        Self { warnings, ..Default::default() }
+    }
+    pub fn new_from_messages(messages: Vec<String>) -> Self {
+        Self { messages, ..Default::default() }
+    }
+    #[allow(clippy::print_stdout)]
     pub fn print_messages(&self) {
         println!("{}", self.create_messages_text());
     }
@@ -54,7 +64,7 @@ impl Messages {
         self.errors.extend(errors);
     }
 
-    pub fn extend_with_another_messages(&mut self, messages: Messages) {
+    pub fn extend_with_another_messages(&mut self, messages: Self) {
         let (messages, warnings, errors) = (messages.messages, messages.warnings, messages.errors);
         self.messages.extend(messages);
         self.warnings.extend(warnings);

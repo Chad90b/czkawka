@@ -21,6 +21,12 @@ music_checking_by_content = Content
 same_music_seconds_label = Minimal fragment second duration
 same_music_similarity_label = Maximum difference
 
+music_compare_only_in_title_group = Compare only in title
+music_compare_only_in_title_group_tooltip =
+        When enabled, files are grouped by title and then compared to each other.
+
+        With 10000 files, instead almost 100 million comparisons usually there will be around 20000 comparisons.
+
 same_music_tooltip =
         Searching for similar music files by its content can be configured by setting:
 
@@ -69,22 +75,22 @@ duplicate_check_method_tooltip =
         Hash - Finds files which have the same content. This mode hashes the file and later compares this hash to find duplicates. This mode is the safest way to find duplicates. App heavily uses cache, so second and further scans of the same data should be a lot of faster than the first. 
 
 image_hash_size_tooltip =
-        Each checked image produce special hash which can be compared with every other, and small difference between them means that this images are similar.
+        Each checked image produces a special hash which can be compared with each other, and a small difference between them means that these images are similar.
 
-        8 hash size is quite good to find images that are only little similar to original. With bigger set of images (>1000) will produce big amount of false positives, so I recommend to use for such amount bigger hash size.
+        8 hash size is quite good to find images that are only a little similar to original. With a bigger set of images (>1000), this will produce a big amount of false positives, so I recommend to use  a bigger hash size in this case.
 
-        16 is default hash size which is quite good compromise between finding even a little similar images and having small amount of hash collisions.
+        16 is the default hash size which is quite a good compromise between finding even a little similar images and having only a small amount of hash collisions.
 
-        32 and 64 hashes finds only very similar images, but almost should not have any false positives (maybe except some images with alpha channel).
+        32 and 64 hashes find only very similar images, but should have almost no false positives (maybe except some images with alpha channel).
 
 image_resize_filter_tooltip = 
-        To compute hash of image, library must first resize it.
+        To compute hash of image, the library must first resize it.
 
-        Depend on chosen algorithm, resulted image used to calculate hash will may looks little different.
+        Depend on chosen algorithm, the resulting image used to calculate hash will looks a little different.
 
-        The fastest algorithm to use, but also one which gives the worst results is Nearest, it is enabled by default, because with 16x16 hash size, lower quality it is not really visible.
+        The fastest algorithm to use, but also the one which gives the worst results, is Nearest. It is enabled by default, because with 16x16 hash size lower quality it is not really visible.
 
-        With 8x8 hash size is recommended to use different algorithm than Nearest, to have better groups of images.
+        With 8x8 hash size it is recommended to use a different algorithm than Nearest, to have better groups of images.
 
 image_hash_alg_tooltip = 
         Users can choose from one of many algorithms of calculating the hash.
@@ -146,7 +152,7 @@ main_check_box_broken_files_archive = Archive
 main_check_box_broken_files_image = Image
 
 check_button_general_same_size = Ignore same size
-check_button_general_same_size_tooltip = Ignore from results, files which have identical size - usually this are 1:1 duplicates
+check_button_general_same_size_tooltip = Ignore files with identical size in results - usually these are 1:1 duplicates
 
 main_label_size_bytes_tooltip = Size of files which will be used in scan
 
@@ -192,13 +198,18 @@ upper_allowed_extensions_tooltip =
 
         Usage example  ".exe, IMAGE, VIDEO, .rar, 7z" - this means that images (e.g. jpg, png), videos (e.g. avi, mp4), exe, rar, and 7z files will be scanned.
 
+upper_excluded_extensions_tooltip =
+        List of disabled files which will be ignored in scan.
+
+        When using both allowed and disabled extensions, this one has higher priority, so file will not be checked.
+
 upper_excluded_items_tooltip = 
         Excluded items must contain * wildcard and should be separated by commas.
         This is slower than Excluded Directories, so use it carefully.
 
 upper_excluded_items = Excluded Items:
 upper_allowed_extensions = Allowed Extensions:
-
+upper_excluded_extensions = Disabled Extensions:
 
 # Popovers
 popover_select_all = Select all
@@ -274,6 +285,7 @@ bottom_symlink_button = Symlink
 bottom_hardlink_button = Hardlink
 bottom_move_button = Move
 bottom_sort_button = Sort
+bottom_compare_button = Compare
 
 bottom_search_button_tooltip = Start search
 bottom_select_button_tooltip = Select records. Only selected files/folders can be later processed.
@@ -298,6 +310,8 @@ bottom_move_button_tooltip =
         When trying to move two files with identical name to folder, second will fail and show error.
 bottom_sort_button_tooltip =
         Sorts files/folders according to selected method.
+bottom_compare_button_tooltip =
+        Compare images in the group.
 
 bottom_show_errors_tooltip = Show/Hide bottom text panel.
 bottom_show_upper_notebook_tooltip = Show/Hide upper notebook panel.
@@ -325,6 +339,14 @@ header_about_button_tooltip = Opens dialog with info about app.
 ## General
 settings_number_of_threads = Number of used threads
 settings_number_of_threads_tooltip = Number of used threads, 0 means that all available threads will be used.
+
+settings_use_rust_preview = Use external libraries instead gtk to load previews
+settings_use_rust_preview_tooltip =
+        Using gtk previews will sometimes be faster and support more formats, but sometimes this could be exactly the opposite.
+
+        If you have problems with loading previews, you may can to try to change this setting.
+
+        On non-linux systems, it is recommended to use this option, because gtk-pixbuf are not always available there so disabling this option will not load previews of some images.
 
 settings_label_restart = You need to restart app to apply settings!
 
@@ -454,23 +476,29 @@ compute_found_broken_files = Found { $number_files } broken files
 compute_found_bad_extensions = Found { $number_files } files with invalid extensions
 
 # Progress window
-progress_scanning_general_file = Scanning {$file_number} file
+progress_scanning_general_file = {$file_number -> 
+        [one] Scanned {$file_number} file
+       *[other] Scanned {$file_number} files
+}
 
-progress_scanning_extension_of_files = Checking extension of {$file_checked}/{$all_files} file
-progress_scanning_broken_files = Checking {$file_checked}/{$all_files} file
-progress_scanning_video = Hashing of {$file_checked}/{$all_files} video
-progress_scanning_image = Hashing of {$file_checked}/{$all_files} image
-progress_comparing_image_hashes = Comparing {$file_checked}/{$all_files} image hash
-progress_scanning_music_tags_end = Comparing tags of {$file_checked}/{$all_files} music file
-progress_scanning_music_tags = Reading tags of {$file_checked}/{$all_files} music file
-progress_scanning_music_content_end = Comparing fingerprint of {$file_checked}/{$all_files} music file
-progress_scanning_music_content = Calculating fingerprint of {$file_checked}/{$all_files} music file
-progress_scanning_empty_folders = Scanning {$folder_number} folder
-progress_scanning_size = Scanning size of {$file_number} file
-progress_scanning_size_name = Scanning name and size of {$file_number} file
-progress_scanning_name = Scanning name of {$file_number} file
-progress_analyzed_partial_hash = Analyzed partial hash of {$file_checked}/{$all_files} files
-progress_analyzed_full_hash = Analyzed full hash of {$file_checked}/{$all_files} files
+progress_scanning_extension_of_files = Checked extension of {$file_checked}/{$all_files} file
+progress_scanning_broken_files = Checked {$file_checked}/{$all_files} file ({$data_checked}/{$all_data})
+progress_scanning_video = Hashed of {$file_checked}/{$all_files} video
+progress_scanning_image = Hashed of {$file_checked}/{$all_files} image ({$data_checked}/{$all_data})
+progress_comparing_image_hashes = Compared {$file_checked}/{$all_files} image hash
+progress_scanning_music_tags_end = Compared tags of {$file_checked}/{$all_files} music file
+progress_scanning_music_tags = Read tags of {$file_checked}/{$all_files} music file
+progress_scanning_music_content_end = Compared fingerprint of {$file_checked}/{$all_files} music file
+progress_scanning_music_content = Calculated fingerprint of {$file_checked}/{$all_files} music file ({$data_checked}/{$all_data})
+progress_scanning_empty_folders = {$folder_number -> 
+        [one] Scanned {$folder_number} folder
+       *[other] Scanned {$folder_number} folders
+}
+progress_scanning_size = Scanned size of {$file_number} file
+progress_scanning_size_name = Scanned name and size of {$file_number} file
+progress_scanning_name = Scanned name of {$file_number} file
+progress_analyzed_partial_hash = Analyzed partial hash of {$file_checked}/{$all_files} files ({$data_checked}/{$all_data})
+progress_analyzed_full_hash = Analyzed full hash of {$file_checked}/{$all_files} files ({$data_checked}/{$all_data})
 progress_prehash_cache_loading = Loading prehash cache
 progress_prehash_cache_saving = Saving prehash cache
 progress_hash_cache_loading = Loading hash cache
@@ -501,7 +529,6 @@ saving_loading_failed_to_read_config_file = Cannot load configuration from "{ $p
 saving_loading_failed_to_read_data_from_file = Cannot read data from file "{ $path }", reason "{ $reason }".
 saving_loading_orphan_data = Found orphan data "{ $data }" in line "{ $line }".
 saving_loading_not_valid = Setting "{ $data }" does not exist in current app version.
-
 
 # Invalid symlinks
 invalid_symlink_infinite_recursion = Infinite recursion
@@ -544,7 +571,7 @@ move_files_title_dialog = Choose folder to which you want to move duplicated fil
 move_files_choose_more_than_1_path = Only one path may be selected to be able to copy their duplicated files, selected {$path_number}.
 move_stats = Properly moved {$num_files}/{$all_files} items
 
-save_results_to_file = Saved results both to txt and json files.
+save_results_to_file = Saved results both to txt and json files into {$name} folder.
 
 search_not_choosing_any_music = ERROR: You must select at least one checkbox with music searching types.
 search_not_choosing_any_broken_files = ERROR: You must select at least one checkbox with type of checked broken files.

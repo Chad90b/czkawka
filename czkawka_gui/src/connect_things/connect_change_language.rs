@@ -1,9 +1,10 @@
 use gtk4::prelude::*;
-use i18n_embed::unic_langid::LanguageIdentifier;
 use i18n_embed::DesktopLanguageRequester;
+use i18n_embed::unic_langid::LanguageIdentifier;
+use log::error;
 
 use crate::language_functions::get_language_from_combo_box_text;
-use crate::{localizer_gui, GuiData, LANGUAGES_ALL};
+use crate::{GuiData, LANGUAGES_ALL, localizer_gui};
 
 // use i18n_embed::{DesktopLanguageRequester, Localizer};
 
@@ -23,12 +24,12 @@ fn change_language(gui_data: &GuiData) {
         ("czkawka_gui", localizer_gui::localizer_gui()),
     ];
 
-    let lang_short = get_language_from_combo_box_text(&gui_data.settings.combo_box_settings_language.active_text().unwrap()).short_text;
+    let lang_short = get_language_from_combo_box_text(&gui_data.settings.combo_box_settings_language.active_text().expect("No active text")).short_text;
 
-    let lang_identifier = vec![LanguageIdentifier::from_bytes(lang_short.as_bytes()).unwrap()];
+    let lang_identifier = vec![LanguageIdentifier::from_bytes(lang_short.as_bytes()).expect("Failed to create LanguageIdentifier")];
     for (lib, localizer) in localizers {
         if let Err(error) = localizer.select(&lang_identifier) {
-            eprintln!("Error while loadings languages for {lib} {error:?}");
+            error!("Error while loadings languages for {lib} {error:?}");
         }
     }
     gui_data.update_language();
@@ -37,7 +38,7 @@ fn change_language(gui_data: &GuiData) {
 pub fn load_system_language(gui_data: &GuiData) {
     let requested_languages = DesktopLanguageRequester::requested_languages();
 
-    if let Some(language) = requested_languages.get(0) {
+    if let Some(language) = requested_languages.first() {
         let old_short_lang = language.to_string();
         let mut short_lang = String::new();
         // removes from e.g. en_zb, ending _zd since Czkawka don't support this(maybe could add this in future, but only when)
